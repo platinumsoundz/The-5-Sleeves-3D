@@ -107,12 +107,10 @@ radar?.addEventListener('keydown', event => {
 });
 $('#save-game')?.addEventListener('click', () => {
   savedGame = game.saveGame(window.localStorage);
-  setDevResult('Saved.');
 });
 $('#delete-save')?.addEventListener('click', () => {
   game.clearSave(window.localStorage);
   savedGame = null;
-  setDevResult('Save deleted.');
 });
 
 function setDevResult(text) {
