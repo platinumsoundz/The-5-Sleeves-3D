@@ -9,7 +9,7 @@ const game = new Game(world, input, {
   prompt: document.querySelector('#prompt'), message: document.querySelector('#message'),
   phase: document.querySelector('#phase'), playerHealth: document.querySelector('#player-health'),
   senseiHealth: document.querySelector('#sensei-health'), result: document.querySelector('#result'),
-  skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'), loading: document.querySelector('#loading')
+  skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'), touchControls: document.querySelector('#touch-controls'), loading: document.querySelector('#loading')
 });
 let previous = performance.now();
 function frame(now) {
