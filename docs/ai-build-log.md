@@ -178,8 +178,8 @@ safe-area insets. Tests: 43/43.
   Title has Start, Resume (disabled until a valid save exists), Settings (opens the Controls page,
   Back returns to the title) and a visible disabled “Multiplayer · in development” button.
   Start/Esc opens the menu; Select/Tab/M or tapping the radar opens the map. Closing a map opened from the menu returns
-  to the menu, not into the spar. The menu is the old `#settings` overlay rebuilt with STATUS, GEAR,
-  SKILLS, MAP, CONTROLS and SYSTEM pages.
+  to the menu, not into the spar. The menu is the old `#settings` overlay rebuilt with CHARACTER,
+  INVENTORY, SKILLS, MAP, SETTINGS and SYSTEM pages.
 - **Save:** `src/save.js` writes `five-sleeves.save.v1` with tutorial completion, dev-granted
   XP/cash and permissions. SYSTEM can save/delete; boot enables Resume when a sanitized save
   exists. Settings, bindings and touch layout persist separately, so New Game does not erase controls.
