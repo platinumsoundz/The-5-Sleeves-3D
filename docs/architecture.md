@@ -1,10 +1,10 @@
 # Architecture and safe modification
 
-- index.html: viewport, HUD and touch labels.
-- src/styles.css: responsive layout.
-- src/main.js: module wiring and animation loop.
-- src/input.js: shared keyboard/gamepad/touch action map; add controls here.
-- src/world.js: procedural geometry and camera; visual tuning belongs here.
-- src/game.js: tutorial, movement and spar logic. Keep recovery non-lethal. A future XP/currency module can connect here without mixing with input.
+- `index.html` and `src/styles.css`: HUD and touch labels.
+- `src/main.js`: Three.js scene wiring and animation loop.
+- `src/input.js`: shared keyboard, standard gamepad, and touch action map; browser gamepad connection is detected.
+- `src/world.js`: procedural whitebox village and camera.
+- `src/game.js`: tutorial, movement, lock-on and nonlethal spar state.
+- `src/config.js`: tunable gameplay values.
 
-Small modules avoid build tooling. Geometry is intentionally simple for mobile. Lock-on currently toggles a single target; multi-target selection is not implemented. Jump, crouch and dodge controls are mapped but their game actions are placeholders. Add features incrementally and preserve canon guardrails.
+One opponent is supported. XP/money are excluded; `game.js` is the future connection point, without implemented progression. Cipher powers and story representation are intentionally excluded.
