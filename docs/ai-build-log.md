@@ -177,7 +177,7 @@ safe-area insets. Tests: 43/43.
 - **Screens:** `Game.screen` is now `title | menu | map | playing`; only `playing` simulates.
   Title has Start, Resume (disabled until a valid save exists), Settings (opens the Controls page,
   Back returns to the title) and a visible disabled “Multiplayer · in development” button.
-  Start/Esc opens the menu; Select/Tab/M opens the map. Closing a map opened from the menu returns
+  Start/Esc opens the menu; Select/Tab/M or tapping the radar opens the map. Closing a map opened from the menu returns
   to the menu, not into the spar. The menu is the old `#settings` overlay rebuilt with STATUS, GEAR,
   SKILLS, MAP, CONTROLS and SYSTEM pages.
 - **Save:** `src/save.js` writes `five-sleeves.save.v1` with tutorial completion, dev-granted

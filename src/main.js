@@ -97,6 +97,14 @@ $('#menu-tabs')?.addEventListener('click', event => {
 });
 $('#open-map')?.addEventListener('click', () => game.openMap());
 $('#map-close')?.addEventListener('click', () => game.closeMap());
+const radar = $('#radar');
+radar?.addEventListener('click', () => game.openMap());
+radar?.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    game.openMap();
+  }
+});
 $('#save-game')?.addEventListener('click', () => {
   savedGame = game.saveGame(window.localStorage);
   setDevResult('Saved.');
