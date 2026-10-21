@@ -54,7 +54,7 @@ Do not invent module names, energy units/capacities, transfer/storage/simultaneo
 
 - Browser-first, responsive, touch/keyboard/mouse/controller support remains the goal.
 - S23+ target and 30 FPS baseline are goals. The owner reports 120 FPS for the pre-visual build; re-measure after the settlement/character pass.
-- Prefer simple procedural geometry, restrained materials and controlled draw calls; measure before adding effects.
+- Prefer simple procedural geometry, restrained materials and controlled draw calls; measure before adding effects. The HUD FPS readout also reports draw calls and triangles so device checks can record a concrete budget.
 - Recheck camera framing, combat readability, menu/HUD legibility and touch reach after environment changes.
 - Browser screenshots/video are evidence for visual QA; headless tests remain evidence for pure game rules, not visual fidelity.
 
@@ -63,3 +63,5 @@ Do not invent module names, energy units/capacities, transfer/storage/simultaneo
 After any roadmap item is started, update this page with status (proposed / in progress / implemented / verified), exact scope, test evidence, device/browser, and known limitations. Update `docs/memory/02-gameplay.md` only when an owner decision changes gameplay scope; update canon notes only when story/canon is deliberately approved. Append AI changes to `docs/ai-build-log.md`; retain existing signatures and append rather than overwrite.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (status update only; original roadmap material supplied by owner/ChatGPT)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout note)

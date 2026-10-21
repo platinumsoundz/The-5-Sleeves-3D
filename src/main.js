@@ -1,6 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
 // Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -245,7 +246,10 @@ function frame(now) {
     sampleFrames += 1;
     sampleTime += elapsed;
     if (sampleTime >= 0.5) {
-      if (fpsLabel) fpsLabel.textContent = `${Math.round(sampleFrames / sampleTime)} FPS`;
+      if (fpsLabel) {
+        const info = world.renderer.info.render;
+        fpsLabel.textContent = `${Math.round(sampleFrames / sampleTime)} FPS · ${info.calls} DC · ${Math.round(info.triangles / 1000)}K TRI`;
+      }
       sampleFrames = 0;
       sampleTime = 0;
     }

@@ -289,3 +289,15 @@ unsigned and have no separate build-log entry; they are treated as owner-provide
 This agent did not author or alter their canon claims.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (performance readout)
+
+**Scope:** owner asked to keep building roadmap items while noting session token usage. Added a small performance QA aid for the pending device pass.
+
+**Files:** `src/main.js`, `README.md`, `docs/memory/03-technical.md`, `docs/roadmap.md`.
+
+**Change:** the existing top-right FPS label now appends renderer draw-call and triangle counts (`FPS · DC · K TRI`). This makes the owner's browser pass report a concrete draw-call/triangle budget alongside frame rate. No gameplay, camera, touch layout, materials or scene content changed.
+
+**Verification:** `node --check src/main.js`; `npm test` → 53/53. Browser rendering remains unverified here.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
