@@ -41,7 +41,12 @@ export class Input {
     window.addEventListener('contextmenu', event => event.preventDefault());
     window.addEventListener('blur', () => { this.held.clear(); this.pressed.clear(); });
     window.addEventListener('gamepadconnected', event => { this.padName = event.gamepad.id; });
-    window.addEventListener('gamepaddisconnected', () => { this.padName = ''; this.padHeld.clear(); });
+    window.addEventListener('gamepaddisconnected', () => {
+      this.padName = '';
+      for (const action of this.padHeld) this.up(action);
+      this.padHeld.clear();
+      this.device = this.hasTouch ? 'touch' : 'keyboard';
+    });
 
     document.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
