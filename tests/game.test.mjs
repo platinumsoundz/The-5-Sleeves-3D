@@ -1,0 +1,487 @@
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// Headless checks for every rules module plus the Game wiring. No renderer and no DOM: world,
+// input and UI are stubs. Visual layout, camera, touch and gamepad still need the device pass
+// described in docs/memory/03-technical.md.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { CONFIG } from '../src/config.js';
+import { Events } from '../src/events.js';
+import { FighterState, HIT, IGNORED, KNOCKDOWN, RECOVERED } from '../src/fighter.js';
+import { CombatState } from '../src/combat.js';
+import { SenseiAI } from '../src/ai.js';
+import { Match } from '../src/match.js';
+import { Game } from '../src/game.js';
+
+const DT = 1 / 60;
+const frames = seconds => Math.ceil(seconds / DT) + 2;
+
+class Vec3 {
+  constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
+  set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+  distanceTo(other) { return Math.hypot(this.x - other.x, this.y - other.y, this.z - other.z); }
+}
+
+const fighter = z => ({ position: new Vec3(0, 0, z), rotation: new Vec3(), scale: new Vec3(1, 1, 1), userData: {} });
+const element = () => ({ textContent: '', hidden: false, onclick: null, style: {} });
+
+function makeWorld() {
+  return {
+    player: fighter(2.5),
+    sensei: fighter(-2.5),
+    playerParts: { stick: { rotation: new Vec3() } },
+    senseiParts: { stick: { rotation: new Vec3() } },
+    locked: false,
+    setLocked(value) { this.locked = value; }
+  };
+}
+
+function makeUi() {
+  return {
+    skip: element(), restart: element(), message: element(), phase: element(),
+    score: element(), playerHealth: element(), senseiHealth: element(), prompt: element(),
+    device: element(), touchControls: element(), result: element(), loading: element()
+  };
+}
+
+function makeInput() {
+  const held = new Set();
+  const pressed = new Set();
+  return {
+    device: 'keyboard', held, pressed,
+    update() {},
+    endFrame() { pressed.clear(); },
+    reset() { pressed.clear(); },
+    isDown(action) { return held.has(action); },
+    consume(action) { const active = pressed.has(action); pressed.delete(action); return active; },
+    press(action) { pressed.add(action); held.add(action); },
+    release(action) { held.delete(action); },
+    deviceLabel() { return 'INPUT: KEYBOARD / MOUSE'; },
+    controlHints() { return ''; }
+  };
+}
+
+function makeGame() {
+  const world = makeWorld();
+  const ui = makeUi();
+  const input = makeInput();
+  return { game: new Game(world, input, ui), world, ui, input };
+}
+
+const step = (game, count = 1) => { for (let i = 0; i < count; i++) game.update(DT); };
+
+function withAccuracy(value, run) {
+  const original = CONFIG.senseiAccuracy;
+  CONFIG.senseiAccuracy = value;
+  try { return run(); } finally { CONFIG.senseiAccuracy = original; }
+}
+
+function knockDownSensei(game, input) {
+  for (let i = 0; i < Math.ceil(100 / CONFIG.damage); i++) {
+    input.press('attack');
+    step(game);
+    step(game, frames(CONFIG.attackCooldown));
+  }
+}
+
+// --- Events -------------------------------------------------------------------------------
+
+test('events deliver payloads and unsubscribe cleanly', () => {
+  const events = new Events();
+  const seen = [];
+  const off = events.on('hit', payload => seen.push(payload));
+  events.emit('hit', 1);
+  off();
+  events.emit('hit', 2);
+  assert.deepEqual(seen, [1]);
+});
+
+// --- Fighter rules ------------------------------------------------------------------------
+
+test('fighter takes hits, knocks down at zero, and ignores hits while down', () => {
+  const fighterState = new FighterState();
+  assert.equal(fighterState.hit(40), HIT);
+  assert.equal(fighterState.hp, 60);
+  assert.equal(fighterState.hit(60), KNOCKDOWN);
+  assert.equal(fighterState.hp, 0);
+  assert.ok(fighterState.isDown);
+  assert.equal(fighterState.hit(12), IGNORED);
+});
+
+test('Sensei recovers automatically, the player waits for confirmation', () => {
+  const sensei = new FighterState();
+  sensei.hit(100);
+  assert.equal(sensei.tick(CONFIG.knockdown + 0.1), RECOVERED);
+  assert.equal(sensei.hp, 100);
+  assert.equal(sensei.isDown, false);
+
+  const player = new FighterState({ needsConfirm: true });
+  player.hit(100);
+  assert.equal(player.tick(CONFIG.knockdown + 0.1), null);
+  assert.equal(player.hp, 0);
+  assert.equal(player.awaitingConfirm, true);
+  assert.equal(player.confirm(), true);
+  assert.equal(player.hp, 100);
+  assert.equal(player.confirm(), false);
+});
+
+// --- Combat timers ------------------------------------------------------------------------
+
+test('attack cooldown blocks a second swing until it expires', () => {
+  const combat = new CombatState();
+  assert.equal(combat.canAttack, true);
+  combat.beginAttack();
+  assert.equal(combat.canAttack, false);
+  combat.tick(CONFIG.attackCooldown / 2);
+  assert.equal(combat.canAttack, false);
+  combat.tick(CONFIG.attackCooldown);
+  assert.equal(combat.canAttack, true);
+});
+
+test('dodge grants invulnerability and normalizes its direction', () => {
+  const combat = new CombatState();
+  combat.beginDodge(1, 0, 0);
+  assert.equal(combat.invulnerable, true);
+  assert.deepEqual(combat.dodgeDir, { x: 1, z: 0 });
+  combat.tick(CONFIG.dodgeTime + 0.01);
+  assert.equal(combat.invulnerable, false);
+});
+
+test('swing angle arcs out and returns to rest', () => {
+  const combat = new CombatState();
+  assert.equal(combat.swingAngle, 0);
+  combat.beginAttack();
+  const mid = Math.floor(CONFIG.attackAnimTime / DT / 2);
+  for (let i = 0; i < mid; i++) combat.tick(DT);
+  assert.ok(combat.swingAngle > 0.5);
+  combat.tick(CONFIG.attackAnimTime);
+  assert.equal(combat.swingAngle, 0);
+});
+
+// --- Sensei AI ----------------------------------------------------------------------------
+
+test('Sensei idles when inactive, approaches when far and telegraphs before striking', () => {
+  const ai = new SenseiAI();
+  assert.equal(ai.update(DT, { active: false, distance: 5 }).approach, false);
+  assert.equal(ai.state, 'idle');
+
+  const approach = ai.update(DT, { active: true, distance: 5 });
+  assert.equal(approach.approach, true);
+  assert.equal(ai.state, 'approach');
+
+  const windup = ai.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
+  assert.equal(windup.strike, false, 'a wind-up must not hit immediately');
+  assert.equal(ai.state, 'windup');
+  assert.equal(ai.windingUp, true);
+});
+
+test('a completed wind-up strikes only when the target is open', () => withAccuracy(1, () => {
+  const early = new SenseiAI();
+  early.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
+  let struck = false;
+  for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
+    struck = struck || early.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 }).strike;
+  }
+  assert.equal(struck, true);
+
+  const blocked = new SenseiAI();
+  blocked.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
+  let blockedHit = false;
+  for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
+    blockedHit = blockedHit || blocked.update(DT, {
+      active: true, distance: CONFIG.senseiReach - 0.1, crouching: true
+    }).strike;
+  }
+  assert.equal(blockedHit, false);
+}));
+
+test('Sensei misses when accuracy is zero or the player dodges away', () => {
+  withAccuracy(0, () => {
+    const ai = new SenseiAI();
+    ai.update(DT, { active: true, distance: 1 });
+    let struck = false;
+    for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
+      struck = struck || ai.update(DT, { active: true, distance: 1 }).strike;
+    }
+    assert.equal(struck, false);
+  });
+
+  withAccuracy(1, () => {
+    const ai = new SenseiAI();
+    ai.update(DT, { active: true, distance: 1 });
+    let struck = false;
+    for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
+      struck = struck || ai.update(DT, { active: true, distance: 1, playerInvulnerable: true }).strike;
+    }
+    assert.equal(struck, false);
+  });
+});
+
+test('a strike misses if the player leaves reach during the wind-up', () => {
+  withAccuracy(1, () => {
+    const ai = new SenseiAI();
+    ai.update(DT, { active: true, distance: 1 });
+    let struck = false;
+    for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
+      struck = struck || ai.update(DT, { active: true, distance: CONFIG.senseiReach + 2 }).strike;
+    }
+    assert.equal(struck, false);
+  });
+});
+
+// --- Match scoring ------------------------------------------------------------------------
+
+test('match is first to the configured knockdowns and then locks', () => {
+  const match = new Match();
+  assert.equal(match.award('player'), false);
+  assert.equal(match.award('sensei'), false);
+  assert.equal(match.award('player'), false);
+  assert.equal(match.award('player'), true);
+  assert.equal(match.over, true);
+  assert.equal(match.winner, 'player');
+  assert.equal(match.player, 3);
+  assert.equal(match.award('sensei'), true, 'scoring after the end changes nothing');
+  assert.equal(match.sensei, 1);
+});
+
+// --- Game: tutorial and spar --------------------------------------------------------------
+
+test('starts in the tutorial with skip available and restart hidden', () => {
+  const { game, ui } = makeGame();
+  assert.equal(game.phase, 'tutorial');
+  assert.equal(game.step, 0);
+  assert.equal(ui.skip.hidden, false);
+  assert.equal(ui.restart.hidden, true);
+  assert.equal(ui.result.hidden, true);
+
+  ui.skip.onclick();
+  assert.equal(game.phase, 'spar');
+  assert.equal(ui.skip.hidden, true);
+  assert.equal(ui.restart.hidden, false);
+});
+
+test('Sensei stays passive during the tutorial', () => {
+  const { game, world } = makeGame();
+  world.player.position.set(0, 0, -1);
+  const senseiZ = world.sensei.position.z;
+  step(game, 300);
+  assert.equal(game.playerHp, 100);
+  assert.equal(game.enemyHp, 100);
+  assert.equal(world.sensei.position.z, senseiZ);
+});
+
+test('tutorial advances through move, attack, aim, dodge and confirm', () => {
+  const { game, input } = makeGame();
+  input.held.add('forward'); step(game); input.release('forward');
+  assert.equal(game.step, 1);
+
+  input.held.add('attack'); step(game); input.release('attack');
+  assert.equal(game.step, 2);
+
+  input.press('aim'); step(game);
+  assert.equal(game.step, 3);
+
+  input.press('dodge'); step(game);
+  assert.equal(game.step, 4);
+
+  input.press('confirm'); step(game);
+  assert.equal(game.phase, 'spar');
+});
+
+test('staff swings do no damage during the tutorial, then damage in range', () => {
+  const { game, world, input } = makeGame();
+  world.player.position.set(0, 0, -1.5);
+  input.press('attack'); step(game);
+  assert.equal(game.enemyHp, 100);
+
+  game.finishTutorial();
+  step(game, frames(CONFIG.attackCooldown));
+  world.player.position.set(0, 0, -1.5);
+  input.press('attack'); step(game);
+  assert.equal(game.enemyHp, 100 - CONFIG.damage);
+});
+
+test('out-of-range swings miss', () => {
+  const { game, input } = makeGame();
+  game.finishTutorial();
+  input.press('attack'); step(game);
+  assert.equal(game.enemyHp, 100);
+});
+
+test('knockdown zeroes the health bar and scores a point', () => withAccuracy(0, () => {
+  const { game, world, ui, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  knockDownSensei(game, input);
+
+  assert.equal(game.enemyHp, 0);
+  assert.ok(game.enemyDown > 0);
+  assert.equal(game.match.player, 1);
+  assert.equal(ui.senseiHealth.style.width, '0%');
+  assert.equal(ui.score.textContent, '1 — 0');
+
+  step(game, frames(CONFIG.knockdown) + 2);
+  assert.equal(game.enemyDown, 0);
+  assert.equal(game.enemyHp, 100);
+  assert.equal(world.sensei.rotation.z, 0);
+  assert.equal(world.sensei.position.y, 0);
+}));
+
+test('round reset returns both fighters to their marks without clearing the score', () => withAccuracy(0, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  knockDownSensei(game, input);
+  assert.equal(game.match.player, 1);
+
+  let snapshot = null;
+  game.events.on('round-start', () => {
+    snapshot = {
+      playerZ: world.player.position.z,
+      senseiZ: world.sensei.position.z,
+      playerHp: game.playerHp,
+      senseiHp: game.enemyHp
+    };
+  });
+  step(game, frames(CONFIG.knockdown + CONFIG.roundPause));
+  assert.ok(snapshot, 'the round should restart after recovery and the pause');
+  assert.equal(snapshot.playerZ, 2.5);
+  assert.equal(snapshot.senseiZ, -2.5);
+  assert.equal(snapshot.playerHp, 100);
+  assert.equal(snapshot.senseiHp, 100);
+  assert.equal(game.match.player, 1);
+}));
+
+test('downed player stays down until confirming, then returns at full health', () => withAccuracy(1, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  game.playerHp = CONFIG.senseiDamage;
+
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.playerHp, 0);
+  assert.ok(game.playerDown > 0);
+  assert.equal(game.match.sensei, 1);
+
+  step(game, frames(CONFIG.knockdown) + 2);
+  assert.equal(game.playerDown, -1, 'no automatic recovery');
+
+  CONFIG.senseiAccuracy = 0;
+  input.press('confirm'); step(game);
+  assert.equal(game.playerDown, 0);
+  assert.equal(game.playerHp, 100);
+}));
+
+test('a third knockdown ends the spar and freezes movement', () => withAccuracy(0, () => {
+  const { game, world, ui, input } = makeGame();
+  game.finishTutorial();
+  game.match.player = 2;
+  world.player.position.set(0, 0, -1);
+  knockDownSensei(game, input);
+
+  assert.equal(game.phase, 'result');
+  assert.equal(game.match.winner, 'player');
+  assert.equal(ui.result.hidden, false);
+  assert.equal(ui.result.textContent, 'YOU WIN THE SPAR');
+  assert.equal(ui.phase.textContent, 'SPAR COMPLETE');
+  assert.equal(ui.skip.hidden, true);
+  assert.equal(ui.restart.hidden, false);
+
+  const frozenZ = world.player.position.z;
+  input.held.add('forward');
+  step(game, 20);
+  input.release('forward');
+  assert.equal(world.player.position.z, frozenZ);
+}));
+
+test('Sensei can take the spar too', () => withAccuracy(1, () => {
+  const { game, world, ui } = makeGame();
+  game.finishTutorial();
+  game.match.sensei = 2;
+  world.player.position.set(0, 0, -1);
+  game.playerHp = CONFIG.senseiDamage;
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.phase, 'result');
+  assert.equal(ui.result.textContent, 'SENSEI WINS THE SPAR');
+}));
+
+test('jump clears the idle settle and lands back on the ground', () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  let peak = 0;
+  input.press('jump');
+  for (let i = 0; i < 90; i++) {
+    step(game);
+    peak = Math.max(peak, world.player.position.y);
+  }
+  assert.ok(peak > 0.95, `peak ${peak.toFixed(3)} should exceed 0.95`);
+  assert.ok(peak < 1.4, `peak ${peak.toFixed(3)} should stay within the arena scale`);
+  assert.ok(world.player.position.y < 0.01, 'player should settle back down after landing');
+});
+
+test('restart clears knockdown poses, score and stale input', () => withAccuracy(0, () => {
+  const { game, world, ui, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  knockDownSensei(game, input);
+  assert.ok(game.enemyDown > 0);
+
+  input.pressed.add('attack');
+  game.restart();
+
+  assert.equal(game.phase, 'tutorial');
+  assert.equal(game.match.player, 0);
+  assert.equal(ui.score.textContent, '0 — 0');
+  assert.equal(ui.result.hidden, true);
+  assert.equal(world.sensei.rotation.z, 0);
+  assert.equal(world.sensei.position.y, 0);
+  assert.equal(world.player.rotation.z, 0);
+  assert.equal(world.player.scale.y, 1);
+  assert.equal(world.player.userData.vy, 0);
+  assert.equal(world.player.position.z, 2.5);
+  assert.equal(input.pressed.size, 0);
+
+  step(game, 10);
+  assert.equal(world.sensei.rotation.z, 0, 'Sensei must not stay lying down after restart');
+}));
+
+test('a long seeded spar stays in bounds and reaches a result', () => withAccuracy(0.6, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  const random = seeded(20261021);
+  const actions = ['forward', 'back', 'left', 'right', 'attack', 'dodge', 'jump', 'sprint', 'aim', 'crouch', 'confirm'];
+  let ended = false;
+
+  for (let frame = 0; frame < 60 * 300 && !ended; frame++) {
+    if (frame % 12 === 0) {
+      input.held.clear();
+      for (const action of actions) if (random() < 0.22) input.press(action);
+    }
+    step(game);
+    for (const fighter of [world.player, world.sensei]) {
+      assert.ok(Number.isFinite(fighter.position.x) && Number.isFinite(fighter.position.z), 'no NaN positions');
+      assert.ok(Math.abs(fighter.position.x) <= CONFIG.arenaLimit + 1e-9, 'x stays in the arena');
+      assert.ok(Math.abs(fighter.position.z) <= CONFIG.arenaLimit + 1e-9, 'z stays in the arena');
+    }
+    ended = game.phase === 'result';
+  }
+
+  assert.ok(ended, 'a spar should finish within the simulation budget');
+  assert.ok(game.match.player >= CONFIG.pointsToWin || game.match.sensei >= CONFIG.pointsToWin);
+}));
+
+function seeded(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+test('every HUD id main.js queries exists in the shell', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const ids = [...main.matchAll(/querySelector\('#([\w-]+)'\)/g)].map(match => match[1]);
+  assert.ok(ids.includes('score'), 'the score readout should be wired');
+  for (const id of ids) assert.ok(html.includes(`id="${id}"`), `#${id} missing from index.html`);
+});

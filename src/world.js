@@ -1,3 +1,4 @@
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 export function createWorld(host){
  const scene=new THREE.Scene();scene.background=new THREE.Color(0x9eb6b2);scene.fog=new THREE.Fog(0x9eb6b2,24,65);

@@ -10,4 +10,13 @@
 - Target 30 FPS baseline on S23+; higher refresh modes are later best-effort options, not guaranteed.
 
 ## Deferred
-Sparring win condition; deeper Sensei behavior; physical ragdoll; multi-target cycling; full remapping UI; saves; progression; inventory; Sleeve skills; online networking; final art.
+Physical ragdoll; multi-target cycling; full remapping UI; saves; progression; inventory; Sleeve skills; online networking; final art.
+
+## Working (built, headless-tested, not yet browser-tested)
+- Sparring win condition: knockdowns are points, first to 3 wins, then a result screen and restart.
+- Rounds: after a knockdown and recovery, a short pause returns both fighters to their marks at full health; scores persist.
+- Sensei behavior: approach, 0.5s wind-up telegraph, strike, recover, with reach and accuracy tunable in `src/config.js`.
+- HUD: score readout, phase label (TUTORIAL / FREE SPAR / SPAR COMPLETE), knockdown health at zero until recovery.
+- Dodge and crouch both avoid a Sensei strike; a dodge keeps its directional input, including a pure sideways dodge.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

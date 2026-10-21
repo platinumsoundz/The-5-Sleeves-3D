@@ -1,3 +1,4 @@
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // Normalizes every device into named actions so gameplay never checks raw keys or button numbers.
 export class Input {
   constructor() {
@@ -8,6 +9,7 @@ export class Input {
     this.hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.device = this.hasTouch ? 'touch' : 'keyboard';
     this.lastSource = this.device;
+    this.pointerStart = null;
 
     window.addEventListener('keydown', event => {
       const action = KEYS[event.code];
@@ -22,24 +24,28 @@ export class Input {
       if (action) this.up(action);
     });
 
-    // Mouse: left button attacks; right button holds lock-on/aim.
+    // Mouse: a click without drag attacks; dragging orbits the camera. Right button holds lock-on.
     window.addEventListener('pointerdown', event => {
       if (event.pointerType === 'mouse' && event.target.closest('#game canvas')) {
         this.device = 'keyboard';
-        if (event.button === 0) this.down('attack');
+        if (event.button === 0) this.pointerStart = { x: event.clientX, y: event.clientY };
         if (event.button === 2) this.down('aim');
       } else if (event.pointerType === 'touch') {
         this.device = 'touch';
       }
     });
     window.addEventListener('pointerup', event => {
-      if (event.pointerType === 'mouse') {
-        if (event.button === 0) this.up('attack');
-        if (event.button === 2) this.up('aim');
+      if (event.pointerType !== 'mouse') return;
+      if (event.button === 0 && this.pointerStart) {
+        const moved = Math.hypot(event.clientX - this.pointerStart.x, event.clientY - this.pointerStart.y);
+        this.pointerStart = null;
+        if (moved < 6) this.down('attack');
+        this.up('attack');
       }
+      if (event.button === 2) this.up('aim');
     });
     window.addEventListener('contextmenu', event => event.preventDefault());
-    window.addEventListener('blur', () => { this.held.clear(); this.pressed.clear(); });
+    window.addEventListener('blur', () => { this.held.clear(); this.pressed.clear(); this.pointerStart = null; });
     window.addEventListener('gamepadconnected', event => { this.padName = event.gamepad.id; });
     window.addEventListener('gamepaddisconnected', () => {
       this.padName = '';
@@ -67,6 +73,8 @@ export class Input {
     this.held.add(action);
   }
   up(action) { this.held.delete(action); }
+  // Drop queued edge presses without releasing held keys; used when the match restarts.
+  reset() { this.pressed.clear(); this.pointerStart = null; }
 
   update() {
     const pads = navigator.getGamepads?.() || [];

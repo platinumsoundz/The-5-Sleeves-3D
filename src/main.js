@@ -1,3 +1,4 @@
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // Entry point: scene creation and browser input live in separate, small modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -7,7 +8,7 @@ const world = createWorld(document.querySelector('#game'));
 const input = new Input();
 const game = new Game(world, input, {
   prompt: document.querySelector('#prompt'), message: document.querySelector('#message'),
-  phase: document.querySelector('#phase'), playerHealth: document.querySelector('#player-health'),
+  phase: document.querySelector('#phase'), score: document.querySelector('#score'), playerHealth: document.querySelector('#player-health'),
   senseiHealth: document.querySelector('#sensei-health'), result: document.querySelector('#result'),
   skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'), touchControls: document.querySelector('#touch-controls'), loading: document.querySelector('#loading')
 });
