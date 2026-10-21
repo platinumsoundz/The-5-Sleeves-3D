@@ -1,7 +1,7 @@
-# The 5 Sleeves — browser whitebox
+# The 5 Sleeves — Training Ground
 
-A small training-yard prototype. Serve this folder over HTTP (for example: python -m http.server 8000) and open http://localhost:8000. Requires WebGL and internet: Three.js 0.160.0 loads from jsDelivr CDN. No build step.
+Serve over HTTP (for example `python -m http.server 8000`) and open localhost:8000. WebGL and the Three.js CDN are required. The procedural village arena is a mechanics whitebox.
 
-Keyboard: WASD/arrows move, J attack, K dodge, Space jump, Shift sprint (L3), Ctrl crouch (R3), E lock-on, Enter get up. Touch controls are on-screen. Gamepad: left stick moves; A jump, B dodge, X attack, Y lock, shoulder sprint, D-pad up crouch, Start get-up. Tutorial can be skipped. No deaths. XP/currency are excluded. Cipher Sleeve/powers are unspecified and not depicted.
+Keyboard: WASD/arrows move, J staff attack, Space jump, K dodge, Shift sprint, Ctrl crouch, E aim/lock-on, Enter confirm/get up. Standard gamepad: left stick move, LT aim/lock, RT staff attack, A jump / confirm get-up when down, B dodge, X interact, L3 sprint, R3 crouch. Touch buttons provide matching actions. Tutorial is skippable and Sensei stays passive until spar. Both fighters can be knocked down without death; spar has no win/death state.
 
-See docs/README.md for project memory. Files are divided by entry point, input, world and gameplay. Test on actual target hardware before relying on performance; a 30fps baseline is a goal, not a verified result.
+Input status and prompts identify the active device. XP/currency and Cipher powers are not implemented. Performance target is not verified; no browser execution is claimed. See `docs/` for scope.
