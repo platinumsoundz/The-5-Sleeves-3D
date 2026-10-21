@@ -2,6 +2,8 @@
 // Render world: procedural arena, placeholder fighters, drag-orbit camera and feedback tints.
 // Presentation only — no gameplay rules. main.js pushes feedback state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { CONFIG } from './config.js';
+import { clamp } from './controls.js';
 
 export function createWorld(host) {
   const scene = new THREE.Scene();
@@ -81,18 +83,36 @@ export function createWorld(host) {
   senseiFighter.root.position.set(0, 0, -2.5);
 
   let yaw = 0;
+  let yawOffset = 0;
+  let pitch = .46;
   let locked = true;
+  let aiming = false;
   let dragging = false;
   let lastX = 0;
+  let lastY = 0;
+  let lastLook = 0;
+
+  // Camera look. While locked, drags become an offset around the lock axis and ease back.
+  function look(dx, dy) {
+    if (locked) yawOffset -= dx * CONFIG.lookSensitivity;
+    else yaw -= dx * CONFIG.lookSensitivity;
+    pitch = clamp(pitch + dy * CONFIG.lookSensitivity * .6, -.12, CONFIG.pitchLimit);
+    lastLook = performance.now();
+  }
+
   renderer.domElement.addEventListener('pointerdown', event => {
+    // Touch: the left side belongs to the joystick; the rest of the screen is the look area.
+    if (event.pointerType === 'touch' && event.clientX < innerWidth * .55) return;
     dragging = true;
     lastX = event.clientX;
+    lastY = event.clientY;
     renderer.domElement.setPointerCapture(event.pointerId);
   });
   renderer.domElement.addEventListener('pointermove', event => {
     if (!dragging) return;
-    yaw -= (event.clientX - lastX) * .006;
+    look(event.clientX - lastX, event.clientY - lastY);
     lastX = event.clientX;
+    lastY = event.clientY;
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     renderer.domElement.addEventListener(name, () => { dragging = false; });
@@ -112,8 +132,12 @@ export function createWorld(host) {
 
     setLocked(value) { locked = value; },
 
-    // Called once per frame by main.js. Pure presentation: tint and lean only.
-    setFeedback({ senseiWindingUp = false, playerBlocking = false } = {}) {
+    // Gamepad look and programmatic drags arrive here; touch/mouse drags call it internally.
+    look,
+
+    // Called once per frame by main.js. Pure presentation: tint, lean, aim zoom.
+    setFeedback({ senseiWindingUp = false, playerBlocking = false, aiming: aimNow = false } = {}) {
+      aiming = aimNow;
       senseiFighter.body.material.emissive.setHex(senseiWindingUp ? 0xffb347 : 0x000000);
       senseiFighter.body.material.emissiveIntensity = senseiWindingUp ? .45 : 0;
       senseiFighter.root.rotation.x = senseiWindingUp ? .14 : 0;
@@ -143,10 +167,27 @@ export function createWorld(host) {
       const p = playerFighter.root.position;
       const e = senseiFighter.root.position;
       const mid = p.clone().lerp(e, locked ? 0.5 : 0);
-      const angle = locked ? Math.atan2(p.x - e.x, p.z - e.z) : yaw;
-      const target = new THREE.Vector3(mid.x + Math.sin(angle) * 10, 6, mid.z + Math.cos(angle) * 10);
+
+      // Recentre behind the lock axis shortly after the player stops dragging.
+      if (locked && now - lastLook > 450) yawOffset *= Math.max(0, 1 - dt * 1.8);
+      const lockAngle = Math.atan2(p.x - e.x, p.z - e.z);
+      const angle = locked ? lockAngle + yawOffset : yaw;
+      const distance = aiming ? CONFIG.aimCameraDistance : CONFIG.cameraDistance;
+      const focus = new THREE.Vector3(mid.x, 1.15, mid.z);
+      const target = new THREE.Vector3(
+        focus.x + Math.sin(angle) * Math.cos(pitch) * distance,
+        focus.y + Math.sin(pitch) * distance,
+        focus.z + Math.cos(angle) * Math.cos(pitch) * distance
+      );
       camera.position.lerp(target, 1 - Math.exp(-dt * 8));
-      camera.lookAt(mid.x, 1, mid.z);
+      camera.lookAt(focus);
+
+      const fov = aiming ? CONFIG.aimFov : CONFIG.fov;
+      if (Math.abs(camera.fov - fov) > .1) {
+        camera.fov += (fov - camera.fov) * Math.min(1, dt * 8);
+        camera.updateProjectionMatrix();
+      }
+
       renderer.render(scene, camera);
     }
   };

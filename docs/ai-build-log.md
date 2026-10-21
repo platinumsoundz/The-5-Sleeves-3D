@@ -94,3 +94,49 @@ numbers; if blocking feels mandatory or useless, adjust `blockDamageScale`, `gua
 is stale. Defense numbers are provisional and need the owner's eye after the first browser test.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+## 2026-10-21 — opencode/deepseek-v4.1-flash-free (third pass)
+
+**Scope:** owner asked for Call of Duty Mobile-style touch controls and a standard PC shooter
+layout, and to keep building until the big playtest.
+
+**Touch**
+
+- New `#stick-zone` analog joystick bottom-left (120px base, 52px knob, deadzone, analog
+  magnitude). Gameplay movement now consumes a `move()` vector; half tilt is half speed.
+- The right 45% of the canvas is the look area: yaw and pitch, including a second finger while
+  AIM is held. Buttons and the joystick capture their own pointers, so look/move/aim work together.
+- AIM zooms FOV 55→42, pulls the camera 10→6.5 and shows a centre reticle; while aiming, the
+  right STAFF button hides and `#fire` appears under the left thumb. All other buttons form a
+  3×3 bottom-right cluster (aim, staff, jump, guard, crouch, run, use, confirm).
+
+**PC**
+
+- Standard mapping: LMB = RT attack (click vs drag preserved), RMB = LT aim/lock, Shift = L3
+  sprint, Space = jump/get up, Ctrl = R3 crouch, F = interact, Q or K = guard, Enter = confirm.
+  `E` no longer aims.
+- Camera gained pitch; mouse drag orbits and pitches. Gamepad right stick feeds look through
+  `input.consumeLook()` → `world.look()`; left stick is analog movement.
+
+**Structure**
+
+- New `src/controls.js`: pure `clamp`, `deadzone`, `joystick` helpers, unit-tested.
+- `world.js` imports `CONFIG` for sensitivity/FOV/distance; it still owns all render objects.
+- `game.js` remains DOM/THREE-free and now reads `input.move()` and exposes `aiming` to the HUD.
+
+**Verification:** `npm test` → 40/40 (control math, PC bindings, analog speed, touch aim HUD,
+plus all earlier rules). No new mutation runs this pass.
+
+**Not verified:** everything visual/touch/gamepad, plus stick feel, look sensitivity, pitch
+direction preference, aim zoom framing, FIRE placement and the 3×3 cluster on an S23+. No browser
+run has happened yet.
+
+**Tuning flagged:** `lookSensitivity`, `stickDeadzone`, `gamepadLookSpeed`, `fov`, `aimFov`,
+`cameraDistance`, `aimCameraDistance` are first guesses. Pitch sign is set so drag down looks
+down; if it feels inverted on the phone, flip the `pitch +=` sign in `world.look`.
+
+**For the next model:** if touch look and joystick ever conflict, check that the joystick zone and
+buttons keep pointer capture and that `world.js` only starts a look drag on the right 55% for
+`pointerType === 'touch'`.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

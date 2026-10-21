@@ -8,7 +8,11 @@ Implementation corrections: restart fully resets both fighters' pose and clears 
 
 AI provenance (Confirmed by owner): every model signs each file it creates or materially changes, signatures stack instead of replacing earlier ones, and every behavior-changing session appends to `docs/ai-build-log.md`. Primary model is DeepSeek V4.1 Flash Free; ChatGPT-6 Luna is used occasionally, exact model ID unconfirmed. Details in `docs/memory/04-ai-collaboration.md`.
 
-Sparring structure (Working — provisional, not owner-approved): knockdowns score a point and the first to 3 takes the spar; a 1.2s pause follows before both fighters reset to their marks. Sensei telegraphs for 0.5s inside 1.9 units and connects at most 0.8 of the time; crouching or dodging avoids a strike. There are no deaths; the result reads as spar complete.
+Sparring structure (Working — provisional, not owner-approved): knockdowns score a point and the first to 3 takes the spar; a 1.2s pause follows before both fighters reset to their marks. Sensei telegraphs for 0.5s inside 1.9 units and connects at most 0.8 of the time; dodging avoids a strike (crouch immunity was later removed, see below). There are no deaths; the result reads as spar complete.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+Touch and PC controls (owner instruction, numbers provisional): touch should feel like Call of Duty Mobile — analog stick bottom-left, drag the right screen to look, hold AIM on the right to aim and keep looking with another finger, and a FIRE button appears on the left while aiming; every other button stays bottom-right. On PC, standard shooter bindings: left-click = RT, right-click = LT, Shift = L3, Space = jump, F = interact; Q (and K) guard, Ctrl crouch, Enter/Space confirm. Implemented as an analog move vector plus yaw/pitch camera and aim zoom. Sensitivities, deadzone, FOV and camera distance are placeholders in `config.js`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 

@@ -11,6 +11,8 @@ import { CombatState } from '../src/combat.js';
 import { SenseiAI } from '../src/ai.js';
 import { Match } from '../src/match.js';
 import { Game } from '../src/game.js';
+import { clamp, deadzone, joystick } from '../src/controls.js';
+import { KEYS } from '../src/input.js';
 
 const DT = 1 / 60;
 const frames = seconds => Math.ceil(seconds / DT) + 2;
@@ -22,7 +24,14 @@ class Vec3 {
 }
 
 const fighter = z => ({ position: new Vec3(0, 0, z), rotation: new Vec3(), scale: new Vec3(1, 1, 1), userData: {} });
-const element = () => ({ textContent: '', hidden: false, onclick: null, style: {} });
+const element = () => ({
+  textContent: '', hidden: false, onclick: null, style: {},
+  classList: {
+    values: new Set(),
+    toggle(name, on) { if (on) this.values.add(name); else this.values.delete(name); },
+    contains(name) { return this.values.has(name); }
+  }
+});
 
 function makeWorld() {
   return {
@@ -39,7 +48,8 @@ function makeUi() {
   return {
     skip: element(), restart: element(), message: element(), phase: element(),
     score: element(), warning: element(), playerHealth: element(), senseiHealth: element(), prompt: element(),
-    device: element(), touchControls: element(), result: element(), loading: element()
+    device: element(), touchControls: element(), result: element(), loading: element(),
+    fire: element(), reticle: element()
   };
 }
 
@@ -47,7 +57,7 @@ function makeInput() {
   const held = new Set();
   const pressed = new Set();
   return {
-    device: 'keyboard', held, pressed,
+    device: 'keyboard', held, pressed, moveOverride: null,
     update() {},
     endFrame() { pressed.clear(); },
     reset() { pressed.clear(); },
@@ -55,6 +65,13 @@ function makeInput() {
     consume(action) { const active = pressed.has(action); pressed.delete(action); return active; },
     press(action) { pressed.add(action); held.add(action); },
     release(action) { held.delete(action); },
+    move() {
+      if (this.moveOverride) return this.moveOverride;
+      const x = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0);
+      const z = (held.has('back') ? 1 : 0) - (held.has('forward') ? 1 : 0);
+      return { x, z, magnitude: Math.min(1, Math.hypot(x, z)) };
+    },
+    consumeLook() { return { x: 0, y: 0 }; },
     deviceLabel() { return 'INPUT: KEYBOARD / MOUSE'; },
     controlHints() { return ''; }
   };
@@ -635,6 +652,88 @@ function seeded(seed) {
     return state / 4294967296;
   };
 }
+
+test('joystick math has a deadzone, full deflection and screen-space axes', () => {
+  assert.deepEqual(joystick(4, -3, 60, .15), { x: 0, y: 0, magnitude: 0 });
+
+  const full = joystick(60, 0, 60, .15);
+  assert.equal(full.magnitude, 1);
+  assert.equal(full.x, 1);
+  assert.equal(full.y, 0);
+
+  const half = joystick(0, 30, 60, .15);
+  assert.ok(half.magnitude > .3 && half.magnitude < .7, `half tilt was ${half.magnitude}`);
+  assert.equal(half.x, 0);
+  assert.ok(half.y > 0, 'screen down should be positive y');
+});
+
+test('deadzone rescales instead of snapping to full tilt', () => {
+  assert.equal(deadzone(.1, .2), 0);
+  assert.equal(deadzone(-1, .2), -1);
+  const mid = deadzone(.6, .2);
+  assert.ok(mid > .4 && mid < .6, `rescoped axis was ${mid}`);
+  assert.equal(clamp(5, -1, 1), 1);
+  assert.equal(clamp(-5, -1, 1), -1);
+});
+
+test('PC bindings follow the shooter layout', () => {
+  assert.equal(KEYS.KeyW, 'forward');
+  assert.equal(KEYS.KeyF, 'interact');
+  assert.equal(KEYS.Space, 'jump');
+  assert.equal(KEYS.ShiftLeft, 'sprint');
+  assert.equal(KEYS.ControlLeft, 'crouch');
+  assert.equal(KEYS.KeyQ, 'guard');
+  assert.equal(KEYS.KeyJ, 'attack');
+  assert.equal(KEYS.Enter, 'confirm');
+  assert.equal(KEYS.KeyE, undefined, 'E is no longer aim; RMB/LT own that');
+});
+
+test('analog move magnitude scales travel speed', () => {
+  const slow = makeGame();
+  slow.game.finishTutorial();
+  slow.input.moveOverride = { x: 0, z: -0.5, magnitude: 0.5 };
+  const slowStart = slow.world.player.position.z;
+  step(slow.game, 30);
+  const slowDistance = Math.abs(slow.world.player.position.z - slowStart);
+
+  const fast = makeGame();
+  fast.game.finishTutorial();
+  fast.input.moveOverride = { x: 0, z: -1, magnitude: 1 };
+  const fastStart = fast.world.player.position.z;
+  step(fast.game, 30);
+  const fastDistance = Math.abs(fast.world.player.position.z - fastStart);
+
+  assert.ok(fastDistance > slowDistance * 1.8, `${fastDistance} vs ${slowDistance}`);
+});
+
+test('touch aim mode reveals the fire button and reticle', () => {
+  const { game, input, ui } = makeGame();
+  game.finishTutorial();
+  assert.equal(ui.fire.hidden, true);
+  assert.equal(ui.reticle.hidden, true);
+
+  input.device = 'touch';
+  input.held.add('aim');
+  step(game);
+  assert.equal(game.aiming, true);
+  assert.equal(ui.touchControls.hidden, false);
+  assert.equal(ui.fire.hidden, false, 'the fire button moves under the left thumb while aiming');
+  assert.equal(ui.reticle.hidden, false);
+  assert.equal(ui.touchControls.classList.contains('aiming'), true);
+
+  input.release('aim');
+  step(game);
+  assert.equal(ui.fire.hidden, true);
+  assert.equal(ui.reticle.hidden, true);
+  assert.equal(ui.touchControls.classList.contains('aiming'), false);
+
+  const desktop = makeGame();
+  desktop.game.finishTutorial();
+  desktop.input.held.add('aim');
+  step(desktop.game);
+  assert.equal(desktop.ui.fire.hidden, true, 'no touch fire button on desktop');
+  assert.equal(desktop.ui.reticle.hidden, false, 'desktop aim still shows the reticle');
+});
 
 test('every HUD id main.js queries exists in the shell', async () => {
   const { readFile } = await import('node:fs/promises');

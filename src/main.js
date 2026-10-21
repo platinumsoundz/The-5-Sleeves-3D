@@ -11,7 +11,8 @@ const game = new Game(world, input, {
   phase: document.querySelector('#phase'), score: document.querySelector('#score'), playerHealth: document.querySelector('#player-health'),
   senseiHealth: document.querySelector('#sensei-health'), result: document.querySelector('#result'),
   skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'),
-  warning: document.querySelector('#warning'), touchControls: document.querySelector('#touch-controls'), loading: document.querySelector('#loading')
+  warning: document.querySelector('#warning'), touchControls: document.querySelector('#touch-controls'),
+  fire: document.querySelector('#fire'), reticle: document.querySelector('#reticle'), loading: document.querySelector('#loading')
 });
 window.__trainingReady = true;
 
@@ -31,7 +32,13 @@ function frame(now) {
   const dt = Math.min(elapsed, 0.05);
   if (!document.hidden) {
     game.update(dt);
-    world.setFeedback({ senseiWindingUp: game.ai.windingUp, playerBlocking: game.blocking });
+    const look = input.consumeLook();
+    if (look.x || look.y) world.look(look.x, look.y);
+    world.setFeedback({
+      senseiWindingUp: game.ai.windingUp,
+      playerBlocking: game.blocking,
+      aiming: game.aiming
+    });
     world.render(dt);
     sampleFrames += 1;
     sampleTime += elapsed;

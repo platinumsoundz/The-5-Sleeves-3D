@@ -16,6 +16,10 @@ export class Hud {
     el.prompt.textContent = state.prompt;
     el.device.textContent = state.device;
     el.touchControls.hidden = !state.touch;
+    el.touchControls.classList?.toggle('aiming', state.aiming);
+    if (el.reticle) el.reticle.hidden = !state.aiming;
+    // While aiming, touch players get a fire button under the left thumb too.
+    if (el.fire) el.fire.hidden = !(state.touch && state.aiming);
     el.skip.hidden = !state.showSkip;
     el.restart.hidden = !state.showRestart;
     if (el.result) {

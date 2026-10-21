@@ -43,6 +43,7 @@ export class Game {
     this.phase = 'tutorial';
     this.step = 0;
     this.locked = false;
+    this.aiming = false;
     this.blocking = false;
     this.roundTimer = 0;
     this.resultText = '';
@@ -77,11 +78,13 @@ export class Game {
   }
 
   update(dt) {
-    this.input.update();
-    const dx = (this.input.isDown('right') ? 1 : 0) - (this.input.isDown('left') ? 1 : 0);
-    const dz = (this.input.isDown('back') ? 1 : 0) - (this.input.isDown('forward') ? 1 : 0);
+    this.input.update(dt);
+    const move = this.input.move();
+    const dx = move.x;
+    const dz = move.z;
 
-    this.locked = this.input.isDown('aim');
+    this.aiming = this.input.isDown('aim');
+    this.locked = this.aiming;
     this.world.setLocked(this.locked);
     this.blocking = this.phase !== 'result' && !this.player.isDown
       && this.input.isDown('guard') && !this.playerCombat.invulnerable
@@ -107,11 +110,11 @@ export class Game {
     if (this.phase !== 'tutorial') return;
     if (this.step === 0 && (dx || dz)) {
       this.step = 1;
-      this.show('Step 2/4: staff attack with J / RT.');
+      this.show('Step 2/4: staff attack with LMB / RT.');
     }
     if (this.step === 1 && this.input.isDown('attack')) {
       this.step = 2;
-      this.show('Step 3/4: lock on with E / LT / AIM.');
+      this.show('Step 3/4: hold aim to lock on with RMB / LT / AIM.');
     }
     if (this.step === 2 && this.input.consume('aim')) {
       this.step = 3;
@@ -135,12 +138,10 @@ export class Game {
     if (this.playerCombat.dodgeTimer > 0) {
       player.position.x += this.playerCombat.dodgeDir.x * CONFIG.dodgeSpeed * dt;
       player.position.z += this.playerCombat.dodgeDir.z * CONFIG.dodgeSpeed * dt;
-    } else {
-      const length = Math.hypot(dx, dz);
-      if (length) {
-        player.position.x += dx / length * speed * dt;
-        player.position.z += dz / length * speed * dt;
-      }
+    } else if (dx || dz) {
+      // Analog: a half-tilted stick moves at half speed. Keyboard diagonals arrive normalized.
+      player.position.x += dx * speed * dt;
+      player.position.z += dz * speed * dt;
     }
     player.position.x = clamp(player.position.x);
     player.position.z = clamp(player.position.z);
@@ -360,6 +361,7 @@ export class Game {
         : this.input.controlHints(this.phase, this.player.isDown),
       device: this.input.deviceLabel(),
       touch: this.input.device === 'touch',
+      aiming: this.aiming,
       result: this.resultText,
       showSkip: this.skipVisible,
       showRestart: this.restartVisible

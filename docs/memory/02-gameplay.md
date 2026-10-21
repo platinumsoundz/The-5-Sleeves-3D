@@ -4,7 +4,8 @@
 - Single-player prototype, browser first; multiplayer is a later ambition only.
 - Start in the home-village training area. Short guided tutorial is skippable; after it, free sparring with Sensei. Sensei remains passive during the tutorial.
 - Staff first; keep weapon/ability interfaces open for Cipher later. No deaths; either fighter can be knocked down. Press A/confirm to recover.
-- Hold LT to lock on. RT attacks with the current staff action. A jump, B dodge, X interact, L3 sprint, R3 crouch. Camera movement should cycle targets when there are multiple; first scene has one opponent.
+- Hold LT/RMB to aim and lock on. RT/LMB attacks with the current staff action. A/Space jumps, B/Q guards, X/F interacts, L3/Shift sprints, R3/Ctrl crouches; Enter or Space confirms/get up. Camera movement should cycle targets when there are multiple; first scene has one opponent.
+- Touch follows a Call of Duty Mobile-style layout: analog movement stick bottom-left; drag the right side of the screen to look; hold AIM on the right to zoom/lock (and keep looking with another finger) while a FIRE button appears under the left thumb; all other buttons sit bottom-right.
 - Support touch, keyboard/mouse, Xbox/PlayStation/third-party controllers, detected-input annotations, and future remapping.
 - XP/currency are not in the prototype, but future progression should be a separate module. Local saves are acceptable later; cloud persistence deferred.
 - Target 30 FPS baseline on S23+; higher refresh modes are later best-effort options, not guaranteed.
@@ -23,5 +24,9 @@ Physical ragdoll; multi-target cycling; full remapping UI; saves; progression; i
 - Punish: a whiffed staff swing within 3.1 units invites a shortened 0.26s Sensei wind-up.
 - Robustness: load-failure message if three.js or a module does not arrive, paused updates while the tab is hidden, frame-rate-independent camera lerp, WebGL context-loss notice.
 - HUD: score pips, phase label (TUTORIAL / FREE SPAR / SPAR COMPLETE), knockdown health at zero until recovery.
+- Analog movement: stick tilt sets travel speed (half tilt = half speed); keyboard diagonals are normalized. Camera has yaw and pitch, with drag/right-stick look.
+- Aim mode: FOV eases 55→42 and camera distance 10→6.5; a centre reticle appears. On touch the right STAFF button is replaced by a left FIRE button.
+- Touch look area is the right 45% of the canvas; the left side belongs to the joystick. A locked aim offsets the camera and recentres 0.45s after the last drag.
+- All sensitivities, deadzones, FOV and camera distance are placeholder values in `src/config.js`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

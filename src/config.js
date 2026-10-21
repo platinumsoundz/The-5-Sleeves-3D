@@ -34,5 +34,14 @@ export const CONFIG = {
   // Match structure: knockdowns are points; first to N takes the spar.
   pointsToWin: 3,
   roundPause: 1.2,
-  arenaLimit: 5.5
+  arenaLimit: 5.5,
+  // Camera, look and touch input. Tuning placeholders until the first phone pass.
+  lookSensitivity: .006,
+  pitchLimit: 1.05,
+  stickDeadzone: .16,
+  gamepadLookSpeed: 2.4,
+  fov: 55,
+  aimFov: 42,
+  cameraDistance: 10,
+  aimCameraDistance: 6.5
 };
