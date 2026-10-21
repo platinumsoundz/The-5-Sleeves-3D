@@ -338,6 +338,26 @@ test('Sensei stays passive during the tutorial', () => {
   assert.equal(world.sensei.position.z, senseiZ);
 });
 
+test('tutorial wording follows the active device', () => {
+  const { game, input } = makeGame();
+  input.device = 'touch';
+  game.restart();
+  assert.match(game.message, /left stick/i);
+
+  input.press('forward');
+  step(game);
+  input.release('forward');
+  assert.match(game.message, /STAFF button/);
+
+  input.press('attack');
+  step(game);
+  assert.match(game.message, /hold AIM/);
+
+  input.press('aim');
+  step(game);
+  assert.match(game.message, /tap GUARD/);
+});
+
 test('tutorial advances through move, attack, aim, dodge and confirm', () => {
   const { game, input } = makeGame();
   input.held.add('forward'); step(game); input.release('forward');

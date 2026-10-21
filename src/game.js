@@ -58,7 +58,11 @@ export class Game {
     this.match.reset();
     this.resetFighters();
     this.input.reset();
-    this.show('Step 1/4: move with WASD / the left stick. Sensei is passive.');
+    this.show(this.tip({
+      pc: 'Step 1/4: move with WASD. Sensei is passive.',
+      pad: 'Step 1/4: move with the left stick. Sensei is passive.',
+      touch: 'Step 1/4: move with the left stick. Sensei is passive.'
+    }));
     this.paint();
     this.events.emit('reset');
   }
@@ -116,19 +120,35 @@ export class Game {
     this.input.endFrame();
   }
 
+  tip({ pc, pad, touch }) {
+    return this.input.device === 'touch' ? touch : this.input.device === 'gamepad' ? pad : pc;
+  }
+
   tutorial(dx, dz) {
     if (this.phase !== 'tutorial') return;
     if (this.step === 0 && (dx || dz)) {
       this.step = 1;
-      this.show('Step 2/4: staff attack with LMB / RT.');
+      this.show(this.tip({
+        pc: 'Step 2/4: staff attack with LMB or J.',
+        pad: 'Step 2/4: staff attack with RT.',
+        touch: 'Step 2/4: staff attack with the STAFF button.'
+      }));
     }
     if (this.step === 1 && this.input.isDown('attack')) {
       this.step = 2;
-      this.show('Step 3/4: hold aim to lock on with RMB / LT / AIM.');
+      this.show(this.tip({
+        pc: 'Step 3/4: hold RMB to aim and lock on.',
+        pad: 'Step 3/4: hold LT to aim and lock on.',
+        touch: 'Step 3/4: hold AIM on the right to lock on.'
+      }));
     }
     if (this.step === 2 && this.input.consume('aim')) {
       this.step = 3;
-      this.show('Step 4/4: guard with K / B. Add a direction to dodge; time it to parry.');
+      this.show(this.tip({
+        pc: 'Step 4/4: guard with Q or K. Add a direction to dodge; time it to parry.',
+        pad: 'Step 4/4: guard with B. Add a direction to dodge; time it to parry.',
+        touch: 'Step 4/4: tap GUARD to block, add a direction to dodge, or time it to parry.'
+      }));
     }
     if (this.step === 3 && (this.input.isDown('guard') || this.input.isDown('jump'))) {
       this.step = 4;

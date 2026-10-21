@@ -164,4 +164,8 @@ checks. Syntax check clean. Not mutation-tested this pass.
 local-storage persistence in a real browser, and whether MENU collides with skip/restart on small
 screens. No browser run yet.
 
+**Follow-up in the same session:** tutorial wording now follows the active device (touch sees
+STAFF/AIM/GUARD, PC sees LMB/RMB/Q, gamepad sees RT/LT/B), and the touch controls respect phone
+safe-area insets. Tests: 43/43.
+
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
