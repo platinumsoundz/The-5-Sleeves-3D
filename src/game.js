@@ -45,6 +45,7 @@ export class Game {
     this.locked = false;
     this.aiming = false;
     this.blocking = false;
+    this.paused = false;
     this.roundTimer = 0;
     this.resultText = '';
     this.skipVisible = true;
@@ -57,7 +58,7 @@ export class Game {
     this.match.reset();
     this.resetFighters();
     this.input.reset();
-    this.show('Step 1/4: move with WASD / stick / direction pad. Sensei is passive.');
+    this.show('Step 1/4: move with WASD / the left stick. Sensei is passive.');
     this.paint();
     this.events.emit('reset');
   }
@@ -79,6 +80,15 @@ export class Game {
 
   update(dt) {
     this.input.update(dt);
+    if (this.input.consume('pause') && this.phase !== 'result') {
+      this.paused = !this.paused;
+      this.events.emit('pause', { paused: this.paused });
+    }
+    if (this.paused) {
+      this.paint();
+      this.input.endFrame();
+      return;
+    }
     const move = this.input.move();
     const dx = move.x;
     const dz = move.z;
@@ -362,6 +372,7 @@ export class Game {
       device: this.input.deviceLabel(),
       touch: this.input.device === 'touch',
       aiming: this.aiming,
+      paused: this.paused,
       result: this.resultText,
       showSkip: this.skipVisible,
       showRestart: this.restartVisible

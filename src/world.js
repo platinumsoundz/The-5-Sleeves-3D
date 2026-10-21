@@ -87,6 +87,7 @@ export function createWorld(host) {
   let pitch = .46;
   let locked = true;
   let aiming = false;
+  let settings = { sensitivity: 1, invertY: false };
   let dragging = false;
   let lastX = 0;
   let lastY = 0;
@@ -94,9 +95,11 @@ export function createWorld(host) {
 
   // Camera look. While locked, drags become an offset around the lock axis and ease back.
   function look(dx, dy) {
-    if (locked) yawOffset -= dx * CONFIG.lookSensitivity;
-    else yaw -= dx * CONFIG.lookSensitivity;
-    pitch = clamp(pitch + dy * CONFIG.lookSensitivity * .6, -.12, CONFIG.pitchLimit);
+    const factor = CONFIG.lookSensitivity * settings.sensitivity;
+    if (locked) yawOffset -= dx * factor;
+    else yaw -= dx * factor;
+    const invert = settings.invertY ? -1 : 1;
+    pitch = clamp(pitch + dy * factor * .6 * invert, -.12, CONFIG.pitchLimit);
     lastLook = performance.now();
   }
 
@@ -134,6 +137,21 @@ export function createWorld(host) {
 
     // Gamepad look and programmatic drags arrive here; touch/mouse drags call it internally.
     look,
+
+    setSettings(next = {}) {
+      settings = {
+        sensitivity: Number.isFinite(next.sensitivity) ? next.sensitivity : settings.sensitivity,
+        invertY: next.invertY === true
+      };
+    },
+
+    setQuality(name) {
+      const ratio = name === 'performance' ? 1
+        : name === 'sharp' ? Math.min(devicePixelRatio, 2.5)
+          : Math.min(devicePixelRatio, 1.5);
+      renderer.setPixelRatio(ratio);
+      renderer.setSize(innerWidth, innerHeight);
+    },
 
     // Called once per frame by main.js. Pure presentation: tint, lean, aim zoom.
     setFeedback({ senseiWindingUp = false, playerBlocking = false, aiming: aimNow = false } = {}) {

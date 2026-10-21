@@ -13,6 +13,7 @@ import { Match } from '../src/match.js';
 import { Game } from '../src/game.js';
 import { clamp, deadzone, joystick } from '../src/controls.js';
 import { KEYS } from '../src/input.js';
+import { DEFAULTS, loadSettings, sanitize, saveSettings, SETTINGS_KEY } from '../src/settings.js';
 
 const DT = 1 / 60;
 const frames = seconds => Math.ceil(seconds / DT) + 2;
@@ -49,7 +50,7 @@ function makeUi() {
     skip: element(), restart: element(), message: element(), phase: element(),
     score: element(), warning: element(), playerHealth: element(), senseiHealth: element(), prompt: element(),
     device: element(), touchControls: element(), result: element(), loading: element(),
-    fire: element(), reticle: element()
+    fire: element(), reticle: element(), pause: element(), settings: element()
   };
 }
 
@@ -734,6 +735,60 @@ test('touch aim mode reveals the fire button and reticle', () => {
   assert.equal(desktop.ui.fire.hidden, true, 'no touch fire button on desktop');
   assert.equal(desktop.ui.reticle.hidden, false, 'desktop aim still shows the reticle');
 });
+
+test('settings clamp, default and round-trip through storage', () => {
+  assert.deepEqual(sanitize({}), DEFAULTS);
+  assert.equal(sanitize({ sensitivity: 99 }).sensitivity, 2);
+  assert.equal(sanitize({ sensitivity: .01 }).sensitivity, .4);
+  assert.equal(sanitize({ sensitivity: 'nope' }).sensitivity, 1);
+  assert.equal(sanitize({ quality: 'ultra' }).quality, 'balanced');
+  assert.equal(sanitize({ invertY: 'true' }).invertY, true);
+
+  const store = new Map();
+  const storage = {
+    getItem: key => store.get(key) ?? null,
+    setItem: (key, value) => store.set(key, value)
+  };
+  assert.deepEqual(loadSettings(storage), DEFAULTS);
+
+  const saved = saveSettings(storage, { sensitivity: 1.35, invertY: true, quality: 'sharp' });
+  assert.deepEqual(saved, { sensitivity: 1.35, invertY: true, quality: 'sharp' });
+  assert.deepEqual(loadSettings(storage), saved);
+  assert.equal(store.has(SETTINGS_KEY), true);
+
+  const broken = { getItem: () => '{oops', setItem() {} };
+  assert.deepEqual(loadSettings(broken), DEFAULTS);
+  const failing = {
+    getItem() { throw new Error('blocked'); },
+    setItem() { throw new Error('blocked'); }
+  };
+  assert.deepEqual(loadSettings(failing), DEFAULTS);
+  assert.deepEqual(saveSettings(failing, DEFAULTS), DEFAULTS);
+});
+
+test('pause freezes the spar and resumes where it stopped', () => withAccuracy(1, () => {
+  const { game, world, input, ui } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  assert.equal(KEYS.Escape, 'pause');
+
+  input.press('pause');
+  step(game);
+  assert.equal(game.paused, true);
+  assert.equal(ui.settings.hidden, false);
+  assert.equal(ui.pause.hidden, true);
+
+  step(game, frames(4));
+  assert.equal(game.playerHp, 100, 'no strikes resolve while paused');
+  assert.equal(game.ai.state, 'idle');
+
+  input.press('pause');
+  step(game);
+  assert.equal(game.paused, false);
+  assert.equal(ui.settings.hidden, true);
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage);
+}));
 
 test('every HUD id main.js queries exists in the shell', async () => {
   const { readFile } = await import('node:fs/promises');

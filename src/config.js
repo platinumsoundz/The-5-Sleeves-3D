@@ -39,7 +39,8 @@ export const CONFIG = {
   lookSensitivity: .006,
   pitchLimit: 1.05,
   stickDeadzone: .16,
-  gamepadLookSpeed: 2.4,
+  // Pixels per second at full right-stick deflection; world.js applies lookSensitivity.
+  gamepadLookSpeed: 420,
   fov: 55,
   aimFov: 42,
   cameraDistance: 10,

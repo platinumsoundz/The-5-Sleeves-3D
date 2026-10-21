@@ -17,6 +17,7 @@ export class Input {
     this.pointerStart = null;
     this.look = { x: 0, y: 0 };
     this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
+    this.pointerActions = new Map();
 
     window.addEventListener('keydown', event => {
       const action = KEYS[event.code];
@@ -76,11 +77,23 @@ export class Input {
         button.setPointerCapture(event.pointerId);
         this.device = 'touch';
         this.down(action);
+        this.pointerActions.set(event.pointerId, action);
       });
       for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
         button.addEventListener(name, () => this.up(action));
       }
     });
+    // A button can be hidden while held (MENU pauses, STAFF hides while aiming). Release it from
+    // the window so its action cannot stay stuck down.
+    const releasePointer = event => {
+      const action = this.pointerActions.get(event.pointerId);
+      if (action) {
+        this.pointerActions.delete(event.pointerId);
+        this.up(action);
+      }
+    };
+    window.addEventListener('pointerup', releasePointer);
+    window.addEventListener('pointercancel', releasePointer);
 
     this.bindStick();
   }
@@ -254,5 +267,6 @@ export const KEYS = {
   Space: 'jump', KeyJ: 'attack', Enter: 'confirm', KeyF: 'interact',
   KeyQ: 'guard', KeyK: 'guard',
   ShiftLeft: 'sprint', ShiftRight: 'sprint',
-  ControlLeft: 'crouch', ControlRight: 'crouch'
+  ControlLeft: 'crouch', ControlRight: 'crouch',
+  Escape: 'pause'
 };

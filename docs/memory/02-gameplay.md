@@ -28,5 +28,6 @@ Physical ragdoll; multi-target cycling; full remapping UI; saves; progression; i
 - Aim mode: FOV eases 55→42 and camera distance 10→6.5; a centre reticle appears. On touch the right STAFF button is replaced by a left FIRE button.
 - Touch look area is the right 45% of the canvas; the left side belongs to the joystick. A locked aim offsets the camera and recentres 0.45s after the last drag.
 - All sensitivities, deadzones, FOV and camera distance are placeholder values in `src/config.js`.
+- Pause: Esc or the MENU button freezes the simulation and opens look sensitivity (0.4–2×), invert-Y and graphics quality (performance 1×, balanced ≤1.5×, sharp ≤2.5× pixel ratio). Settings persist in local storage; no other save data exists.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

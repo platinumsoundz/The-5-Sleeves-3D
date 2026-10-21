@@ -3,6 +3,7 @@
 import { createWorld } from './world.js';
 import { Game } from './game.js';
 import { Input } from './input.js';
+import { loadSettings, saveSettings } from './settings.js';
 
 const world = createWorld(document.querySelector('#game'));
 const input = new Input();
@@ -12,9 +13,35 @@ const game = new Game(world, input, {
   senseiHealth: document.querySelector('#sensei-health'), result: document.querySelector('#result'),
   skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'),
   warning: document.querySelector('#warning'), touchControls: document.querySelector('#touch-controls'),
-  fire: document.querySelector('#fire'), reticle: document.querySelector('#reticle'), loading: document.querySelector('#loading')
+  fire: document.querySelector('#fire'), reticle: document.querySelector('#reticle'),
+  pause: document.querySelector('#pause'), settings: document.querySelector('#settings'),
+  loading: document.querySelector('#loading')
 });
 window.__trainingReady = true;
+
+// Settings: stored locally, applied to the camera and renderer, reflected in the pause panel.
+let settings = loadSettings(window.localStorage);
+const sensitivity = document.querySelector('#sensitivity');
+const invert = document.querySelector('#invert');
+const quality = document.querySelector('#quality');
+
+function applySettings() {
+  world.setSettings(settings);
+  world.setQuality(settings.quality);
+  if (sensitivity) sensitivity.value = settings.sensitivity;
+  if (invert) invert.checked = settings.invertY;
+  if (quality) quality.value = settings.quality;
+}
+
+function persist(next) {
+  settings = saveSettings(window.localStorage, next);
+  applySettings();
+}
+
+sensitivity?.addEventListener('input', () => persist({ ...settings, sensitivity: Number(sensitivity.value) }));
+invert?.addEventListener('change', () => persist({ ...settings, invertY: invert.checked }));
+quality?.addEventListener('change', () => persist({ ...settings, quality: quality.value }));
+applySettings();
 
 // Presentation subscribes to gameplay events instead of reaching into rules modules.
 game.events.on('hit', ({ target }) => world.pulse(target, 0xff6b4a));

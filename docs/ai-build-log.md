@@ -140,3 +140,28 @@ buttons keep pointer capture and that `world.js` only starts a look drag on the 
 `pointerType === 'touch'`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+## 2026-10-21 — opencode/deepseek-v4.1-flash-free (fourth pass)
+
+**Scope:** playtest-readiness while the browser pass is still pending.
+
+- **Gamepad look fix:** right-stick deltas were already scaled by `gamepadLookSpeed` and then
+  multiplied again by `lookSensitivity`, making look ~100× too slow. `gamepadLookSpeed` is now
+  420 px/s (the same unit as drag deltas), so full deflection ≈2.5 rad/s.
+- **Pause/settings:** Esc or the MENU button freezes the simulation and opens a panel with look
+  sensitivity (0.4–2×), invert-Y and graphics quality (pixel ratio 1 / ≤1.5 / ≤2.5). Resume
+  unpauses; values persist under `five-sleeves.settings.v1` in local storage.
+- **Held-button safety:** a button hidden while held (MENU, or STAFF while aiming) could leave its
+  action stuck because its pointerup never landed. Pointer releases are now also caught on
+  `window` and matched by `pointerId`.
+- `settings.js` is pure and storage-injected; `world.setSettings`/`setQuality` apply it; `main.js`
+  owns the form wiring.
+
+**Verification:** `npm test` → 42/42, including new settings clamp/round-trip and pause/resume
+checks. Syntax check clean. Not mutation-tested this pass.
+
+**Not verified:** the panel layout, slider feel, invert direction, quality levels on an S23+,
+local-storage persistence in a real browser, and whether MENU collides with skip/restart on small
+screens. No browser run yet.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

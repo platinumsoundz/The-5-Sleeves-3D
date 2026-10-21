@@ -18,6 +18,7 @@ Rules are split so they cannot drift apart and can be tested without a renderer:
 | `events.js` | synchronous pub/sub between gameplay and presentation |
 | `hud.js` | every DOM write; receives elements, never queries them |
 | `controls.js` | pure deadzone, joystick and clamp math |
+| `settings.js` | sensitivity/invert/quality defaults, clamping and storage I/O |
 | `config.js` | tuning values only |
 
 `game.js` passes stub world/input/ui objects in tests, so no module below it may touch
@@ -38,7 +39,14 @@ load failure if the CDN module never arrives.
 Touch is laid out like a mobile shooter: the joystick owns the bottom-left, the right 45% of the
 canvas is the look area, and the right cluster holds aim/attack/jump/guard/crouch/sprint/use.
 Holding aim also reveals `#fire` under the left thumb. `Hud.sync` is what toggles those elements;
-`input.js` only reads the DOM nodes for the stick and buttons.
+`input.js` only reads the DOM nodes for the stick and buttons. Because a held button can disappear
+(MENU pauses, STAFF hides while aiming), pointer releases are also caught on `window` so an action
+cannot stay stuck down.
+
+Pause lives in `game.js` (`paused` + the `pause` action) and freezes the simulation while painting
+the same HUD. `settings.js` owns validation and local-storage I/O; `main.js` loads settings, passes
+them to `world.setSettings`/`setQuality`, and reflects the range/checkbox/select controls. All
+writes to the HUD remain in `hud.js`.
 
 One opponent is supported. Sensei is passive during the tutorial. Both fighters can be knocked
 down; a downed player must confirm before the next round starts, while Sensei recovers on his own.
