@@ -81,5 +81,24 @@ Show what characters need, can afford, and leave behind before departure. Includ
 
 For game use, these rules are constraints on later story adaptation, not new scope. Inspect actual code/tests before claiming implementation; distinguish placeholders from behavior. Ask owner before choices that would settle canon, energy arithmetic, module mechanics, tower effects, or story inclusion. Keep comic requirements (portrait dimensions, panels, Canva) separate from browser/Three.js rendering.
 
+## Legacy-source audit: older outline and Bible
+
+The user identified these as old/outdated: `The_5_Sleeves_New_Complete_Story_Outline_75_Chapters.txt`, `The_5_Sleeves_Master_Worldbuilding_Bible.docx` (also represented in the legacy consolidated pack), and `The_5_Sleeves_Consolidated_Master_Source_v1.txt`. Their reusable material is largely carried forward in the newer Consolidated Bible v2.0 and Revised Outline (attached filename v2.0, internal heading v2.1), and in chapters 01, 09 and this chapter. No old source should override the newer version or owner decisions.
+
+**Still useful if a future scene needs it, but not a new canon decision:**
+- Commercial Sleeves were developed over years and became difficult to reproduce after collapse because infrastructure, datasets, specialist knowledge and manufacturing were disrupted; simple repairs may remain possible. This helps explain scarcity without making repair impossible everywhere.
+- A paper-free/digital-heavy society can lose access to knowledge through multiple interacting failures; cloud outage alone is not enough. The newer Bible already preserves this logic.
+- The old Bible describes spirits as having distinct communication styles and different degrees of clarity as relationships deepen. This is compatible guidance, not permission to invent a voice/personality before approved.
+- The old outline's recurring-scene checklist and emphasis on journey cost, ordinary character scenes, practical affection, character-specific comedy and post-action consequences are useful craft guidance; the newer outline retains substantially the same checklist.
+- The original Bible's possible Darkness/Cipher completion or absorption is consistently framed as a possibility, not guaranteed. Keep open.
+
+**Do not carry forward as settled facts:**
+- The old Book Three outline says the two catastrophes are “linked by systems and choices.” The newer Bible/outline deliberately says their exact causal relationship is open and they must remain distinct absent evidence. Use the newer open status.
+- The old outline sometimes states a causal sequence from the 26th ability to corruption/virus more definitively than the newer sources. Newer Bible allows connection but leaves exact causal sequence and identity distinctions open. Do not collapse ability, virus, Dark spirit and Cipher into one thing.
+- The legacy outline says Korb discovers a Wind module while scavenging. Newer canon instead says the Wind spirit chooses him through Cipher's link and his protective action; an outline mention of discovery is not a settled module-acquisition mechanic.
+- The old Master Bible's five-book structure was provisional. The newer revised outline is the current working saga plan; details still need verification against approved manuscript and owner decisions.
+
+The old `.docx` attachment was delivered in the chat as encoded document data; the same legacy Bible material is available in searchable text inside `The_5_Sleeves_Consolidated_Master_Source_v1.txt`. This audit relies on that text and the supplied old outline, not on treating a binary blob as readable text.
+
 ## Source note
 The attached Outline filename says v2_0, while its internal heading says “Version 2.1 • 14 October 2026”; existing memory also cites Outline v2.1. Treat this as the same versioned source unless the owner identifies a distinct v2.0. The Bible is Version 2.0 and describes itself as primary once owner-approved; existing project memory records it as intended primary. Do not infer approval merely from its inclusion.
