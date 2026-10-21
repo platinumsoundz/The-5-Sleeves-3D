@@ -1,6 +1,6 @@
 # Chapter 1 — Canon guardrails
 
-**Sources received:** Consolidated Master World & Canon Bible v2.0; Revised Complete Story Outline v2.1; Book One Script Reference v1.0. Bible is the intended primary reference; outline is a working plan; script dialogue is draft. If sources conflict, flag it rather than silently resolving it.
+**Sources received:** Consolidated Master World & Canon Bible v2.0; Revised Complete Story Outline (attached filename v2.0, internal heading v2.1); Book One Script Reference (versions 1.0 and 2.0 supplied). Bible is the intended primary reference, subject to owner approval; outline is a working plan; script dialogue is draft. If sources conflict, flag it rather than silently resolving it. See [chapter 10](10-master-canon-and-saga.md) for detailed Bible/saga rules and [chapter 9](09-book1-story-game-adaptation.md) for Book One source reconciliation.
 
 - Setting circa 2036, near-future and recognizably contemporary; infrastructure and knowledge are unreliable.
 - Ajaye is a practical fixer, technically gifted and trained in weapons. He can rush and treat people as tactical pieces; he grows by listening and sharing responsibility.
