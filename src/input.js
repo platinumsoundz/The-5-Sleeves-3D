@@ -10,6 +10,7 @@ export class Input {
   down(a,source){if(!this.held.has(a))this.pressed.add(a);this.held.add(a);if(source)this.lastSource=source}
   up(a){this.held.delete(a)}
   update(){const pads=navigator.getGamepads?.()||[],p=[...pads].find(Boolean);if(p){this.padName=p.id;this.device='gamepad';const b=p.buttons,axes=p.axes,now=new Set();if(axes[1]<-.25)now.add('forward');if(axes[1]>.25)now.add('back');if(axes[0]<-.25)now.add('left');if(axes[0]>.25)now.add('right');if(b[0]?.pressed)now.add('jump');if(b[1]?.pressed)now.add('dodge');if(b[2]?.pressed)now.add('interact');if(b[6]?.pressed)now.add('aim');if(b[7]?.pressed)now.add('attack');if(b[10]?.pressed)now.add('sprint');if(b[11]?.pressed)now.add('crouch');if(b[9]?.pressed)now.add('confirm');for(const a of now)if(!this.padHeld.has(a))this.down(a,'gamepad');for(const a of this.padHeld)if(!now.has(a))this.up(a);this.padHeld=now}else if(this.device==='gamepad'){this.device='touch'} }
+  deviceLabel(){return this.device==='gamepad'?'INPUT: GAMEPAD':this.lastSource==='touch'?'INPUT: TOUCH':'INPUT: KEYBOARD'}
   isDown(a){return this.held.has(a)} consume(a){const yes=this.pressed.has(a);this.pressed.delete(a);return yes}endFrame(){this.pressed.clear()}
 }
 const KEYS={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',Space:'jump',KeyJ:'attack',Enter:'confirm',KeyE:'aim',ShiftLeft:'sprint',ShiftRight:'sprint',ControlLeft:'crouch',ControlRight:'crouch',KeyK:'dodge',KeyX:'interact'};
