@@ -273,6 +273,11 @@ draw-call budget low. The owner's 120 FPS browser report applies to the pre-visu
 scenery/character pass has **not** been browser-rendered here; no claim is made about its frame
 rate, composition, clipping, staff grip or character likeness.
 
+
+**Test URL for this pass:** https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/c42ea07/index.html — the
+commit-pinned path avoids raw.githack's `/main/` module cache, which was still serving the pre-pass
+`world.js` at verification time. Use the pinned path until the branch cache refreshes.
+
 **Gaps / next model:** run the new build on the S23+ and inspect fog/sky seams, prop clipping, character
 proportions, staff grip during swing/block, contact shadows and draw-call cost. Touch-button layout
 and per-button placement remain deferred. Reference sheets are still required before final likeness
