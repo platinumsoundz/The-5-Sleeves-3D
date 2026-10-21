@@ -6,9 +6,11 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 **Current milestone:** village training and nonlethal staff sparring with Sensei. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
-Before substantial visual changes, run the first browser smoke test on desktop and, when possible, Samsung Internet/Chrome/Brave on the S23+. Confirm loading, camera, controls, resize, touch layout, spar flow and WebGL stability. Browser/device verification and 30 FPS are not yet established. Do not tune performance or claim feel based only on headless tests.
+**Status: implemented (pre-visual build browser-tested by owner).** The owner tested the browser build on the S23+ and reports smooth play at 120 FPS with no issues beyond the touch-button layout, which is deferred. Confirm loading, camera, controls, resize, spar flow and WebGL stability after the 2026-10-22 settlement/character visual pass. The visual pass itself is not yet device-verified. Do not tune performance or claim feel based only on headless tests.
 
 ## Next visual milestone — make the whitebox read as a familiar settlement
+
+**Status: implemented (procedural first pass, pending device review/reference sheets).**
 
 **Intent:** replace the anonymous arena impression with a recognizable, inhabited, near-future village training yard while retaining inexpensive procedural geometry and the existing combat footprint. This is a visual/presentation pass; it does not expand gameplay or change story canon.
 
@@ -23,6 +25,8 @@ Possible visual language grounded in Book One drafts and the canon guide:
 **Acceptance checks:** the training ring and both fighters remain easy to see from the gameplay camera; movement/collision/rules are unchanged; the setting reads as lived-in and contemporary; visual dressing is presentation-only; desktop and phone layout remain usable; performance is measured on target hardware before increasing detail.
 
 ## Character whitebox — shape before likeness
+
+**Status: implemented (first procedural silhouettes, not final likeness).**
 
 The story/visual references do help establish character design direction: Ajaye is a practical, dark-layered scavenger with dense curly brown hair and a left-arm-only Cipher Sleeve after discovery; Sensei is a disciplined practical teacher; Korb is agile/expressive with an emerald Wind Sleeve only after his spirit chooses him. Approved model sheets outrank text descriptions. Exact character reference images are not currently available in the project, so do not claim a faithful likeness or invent facial specifics.
 
@@ -49,7 +53,7 @@ Do not invent module names, energy units/capacities, transfer/storage/simultaneo
 ## Cross-device and performance guardrails
 
 - Browser-first, responsive, touch/keyboard/mouse/controller support remains the goal.
-- S23+ target and 30 FPS baseline are goals, not verified results.
+- S23+ target and 30 FPS baseline are goals. The owner reports 120 FPS for the pre-visual build; re-measure after the settlement/character pass.
 - Prefer simple procedural geometry, restrained materials and controlled draw calls; measure before adding effects.
 - Recheck camera framing, combat readability, menu/HUD legibility and touch reach after environment changes.
 - Browser screenshots/video are evidence for visual QA; headless tests remain evidence for pure game rules, not visual fidelity.
@@ -57,3 +61,5 @@ Do not invent module names, energy units/capacities, transfer/storage/simultaneo
 ## Documentation and handoff
 
 After any roadmap item is started, update this page with status (proposed / in progress / implemented / verified), exact scope, test evidence, device/browser, and known limitations. Update `docs/memory/02-gameplay.md` only when an owner decision changes gameplay scope; update canon notes only when story/canon is deliberately approved. Append AI changes to `docs/ai-build-log.md`; retain existing signatures and append rather than overwrite.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (status update only; original roadmap material supplied by owner/ChatGPT)

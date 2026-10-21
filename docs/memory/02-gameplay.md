@@ -13,7 +13,7 @@
 ## Deferred
 Physical ragdoll; multi-target cycling; real progression/XP/currency; inventory and skill-tree content; per-button drag placement for touch; Sleeve abilities; online networking/multiplayer; final art.
 
-## Working (built, headless-tested, not yet browser-tested)
+## Working (built, headless-tested; owner browser test passed for the pre-visual build)
 - Sparring win condition: knockdowns are points, first to 3 wins, then a result screen and restart.
 - Rounds: after a knockdown and recovery, a short pause returns both fighters to their marks at full health; scores persist.
 - Sensei behavior: approach, 0.5s wind-up telegraph, strike, recover, with reach and accuracy tunable in `src/config.js`.
@@ -31,9 +31,13 @@ Physical ragdoll; multi-target cycling; real progression/XP/currency; inventory 
 - Shell: title screen with Start, Resume (disabled until a save exists), Settings and a visible but disabled “Multiplayer · in development” button. Start/Esc opens the menu; Select/Tab/M opens the map. The menu pages are CHARACTER (XP/cash placeholders, tutorial, knockdowns, permissions), INVENTORY (equipped/inventory placeholders), SKILLS (locked placeholder), MAP, SETTINGS (look/quality + remapping + touch layout) and SYSTEM (save/delete, dev codes, multiplayer note).
 - Save: SYSTEM → SAVE GAME writes tutorial completion, dev-granted XP/cash and permissions to `five-sleeves.save.v1`. Resume restores them; Delete removes the slot. Settings, bindings and touch layout persist separately.
 - Dev codes: `DEV-XP-500`, `DEV-CASH-1000` and `DEV-GEAR-SLEEVE` are placeholders for the eventual code list; they grant save values/permissions and log to the feed. No real weapons or economy yet.
-- HUD: top-left health/stamina/sleeve bars, radar beneath, then the event feed; MENU top centre with score beneath; Sensei health/phase top right. The radar is also a map shortcut on touch/desktop. Stamina drains while sprinting and is spent by jumps/dodges; the sleeve meter is display-only because no ability exists yet.
+- HUD: top-left health/stamina bars, radar beneath, then the event feed; MENU top centre with score beneath; Sensei health/phase top right. The radar is also a map shortcut on touch/desktop. Stamina drains while sprinting and is spent by jumps/dodges. The sleeve bar is hidden because the Cipher Sleeve is not acquired in this pre-story scene; no capacity or charge is modelled yet.
+- Visual pass (2026-10-22): the arena is now a repaired settlement training yard rather than a bare ring — patched perimeter fence and gate, workshop, house with warm windows, market awning, rain barrel/hand pump, solar array and battery, air-scrubber fan, laundry, crates/barrels, staff rack, trees, distant water tower/mast and a green-grey fogline. Ajaye and Sensei are low-poly whitebox silhouettes with clothing, hair, staff and simple faces; Ajaye has no Cipher Sleeve and stays left-arm-only if one is later added. Owner reference sheets are still needed before claiming likeness.
+- Browser status: owner tested the pre-visual build in-browser on the S23+, reported smooth play at 120 FPS and no issues beyond dissatisfaction with the touch-button layout. Touch layout is intentionally deferred. The new visual pass has not yet had a browser smoke test.
 - Pause/settings: menu freezes simulation; look sensitivity (0.4–2×), invert-Y and graphics quality (performance 1×, balanced ≤1.5×, sharp ≤2.5× pixel ratio) plus remapping and touch layout all persist in local storage.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)

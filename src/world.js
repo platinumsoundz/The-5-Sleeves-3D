@@ -1,19 +1,48 @@
-// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
-// Render world: procedural arena, placeholder fighters, drag-orbit camera and feedback tints.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
+// Render world: procedural settlement, character whitebox, drag-orbit camera and feedback tints.
 // Presentation only — no gameplay rules. main.js pushes feedback state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { CONFIG } from './config.js';
 import { clamp } from './controls.js';
+import { buildTrainingGround } from './scenery.js';
+import { createFighter } from './characters.js';
+
+function blobShadow(size = 1.9) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(64, 64, 7, 64, 64, 62);
+  gradient.addColorStop(0, 'rgba(0,0,0,.62)');
+  gradient.addColorStop(.6, 'rgba(0,0,0,.24)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size * .68),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, opacity: .8 })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = .043;
+  return mesh;
+}
 
 export function createWorld(host) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x9eb6b2);
-  scene.fog = new THREE.Fog(0x9eb6b2, 24, 65);
+  scene.background = new THREE.Color(0x88948e);
+  scene.fog = new THREE.Fog(0x8e9a94, 18, 62);
 
-  const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 100);
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 140);
+  camera.position.set(0, 5.4, 8.5);
+  camera.lookAt(0, 1.2, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
   host.prepend(renderer.domElement);
 
   const loading = document.querySelector('#loading');
@@ -34,59 +63,30 @@ export function createWorld(host) {
     }
   });
 
-  scene.add(new THREE.HemisphereLight(0xe6f1ec, 0x465344, 2));
-  const sun = new THREE.DirectionalLight(0xffe3b1, 2);
-  sun.position.set(-5, 10, 7);
+  const ground = buildTrainingGround(scene);
+
+  scene.add(new THREE.HemisphereLight(0xb6cac5, 0x3b4033, 1.35));
+  const sun = new THREE.DirectionalLight(0xffd0a0, 2.55);
+  sun.position.set(-10, 14, 9);
   scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x7899a8, .5);
+  fill.position.set(9, 6, -12);
+  scene.add(fill);
 
-  const mat = color => new THREE.MeshStandardMaterial({ color });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), mat(0x71846c));
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, .08, 48), mat(0xb79e70));
-  ring.position.y = .05;
-  scene.add(ring);
-
-  for (let i = 0; i < 12; i++) {
-    const angle = i * Math.PI / 6;
-    const x = Math.cos(angle) * 9;
-    const z = Math.sin(angle) * 9;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.12, .18, 2.2, 6), mat(0x594534));
-    const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 1), mat(0x587657));
-    trunk.position.set(x, 1.1, z);
-    canopy.position.set(x, 2.6, z);
-    scene.add(trunk, canopy);
-  }
-
-  function fighter(color, staff = false) {
-    const root = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(.38, .85, 4, 8), mat(color));
-    body.position.y = 1.1;
-    root.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.25, 12, 8), mat(0xe0b794));
-    head.position.y = 1.85;
-    root.add(head);
-    let stick;
-    if (staff) {
-      stick = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 2.2, 8), mat(0x7b5030));
-      stick.rotation.x = Math.PI / 2;
-      stick.position.set(.45, 1.2, .4);
-      root.add(stick);
-    }
-    scene.add(root);
-    return { root, body, stick };
-  }
-
-  const playerFighter = fighter(0x385f70, true);
-  const senseiFighter = fighter(0x985b45);
+  const playerFighter = createFighter('ajaye');
+  const senseiFighter = createFighter('sensei');
   playerFighter.root.position.set(0, 0, 2.5);
   senseiFighter.root.position.set(0, 0, -2.5);
+  scene.add(playerFighter.root, senseiFighter.root);
+
+  const playerShadow = blobShadow(1.75);
+  const senseiShadow = blobShadow(2.05);
+  scene.add(playerShadow, senseiShadow);
 
   let yaw = 0;
   let yawOffset = 0;
   let pitch = .46;
   let locked = true;
-  let aiming = false;
   let settings = { sensitivity: 1, invertY: false };
   let dragging = false;
   let lastX = 0;
@@ -124,6 +124,9 @@ export function createWorld(host) {
   // Short-lived colour flashes on a landed hit, parry or block.
   const flashUntil = { player: 0, sensei: 0 };
   const flashColor = { player: new THREE.Color(), sensei: new THREE.Color() };
+  let feedback = { senseiWindingUp: false, playerBlocking: false, aiming: false, swing: 0 };
+  let wasWinding = false;
+  let senseiFollowThrough = 0;
 
   return {
     player: playerFighter.root,
@@ -153,16 +156,17 @@ export function createWorld(host) {
       renderer.setSize(innerWidth, innerHeight);
     },
 
-    // Called once per frame by main.js. Pure presentation: tint, lean, aim zoom.
-    setFeedback({ senseiWindingUp = false, playerBlocking = false, aiming: aimNow = false } = {}) {
-      aiming = aimNow;
-      senseiFighter.body.material.emissive.setHex(senseiWindingUp ? 0xffb347 : 0x000000);
-      senseiFighter.body.material.emissiveIntensity = senseiWindingUp ? .45 : 0;
-      senseiFighter.root.rotation.x = senseiWindingUp ? .14 : 0;
-
-      playerFighter.body.material.emissive.setHex(playerBlocking ? 0x35d0b8 : 0x000000);
-      playerFighter.body.material.emissiveIntensity = playerBlocking ? .3 : 0;
-      playerFighter.stick.rotation.x = playerBlocking ? 0 : Math.PI / 2;
+    // Called once per frame by main.js. Pure presentation: tint, lean, guard and aim zoom.
+    setFeedback(next = {}) {
+      const winding = next.senseiWindingUp === true;
+      if (wasWinding && !winding) senseiFollowThrough = .2;
+      wasWinding = winding;
+      feedback = {
+        senseiWindingUp: winding,
+        playerBlocking: next.playerBlocking === true,
+        aiming: next.aiming === true,
+        swing: Number.isFinite(next.swing) ? next.swing : 0
+      };
     },
 
     pulse(who, color = 0xff6b4a) {
@@ -173,14 +177,38 @@ export function createWorld(host) {
 
     render(dt = 1 / 60) {
       const now = performance.now();
-      if (flashUntil.player > now) {
-        playerFighter.body.material.emissive.copy(flashColor.player);
-        playerFighter.body.material.emissiveIntensity = .85;
-      }
-      if (flashUntil.sensei > now) {
-        senseiFighter.body.material.emissive.copy(flashColor.sensei);
-        senseiFighter.body.material.emissiveIntensity = .85;
-      }
+      const time = now * .001;
+      senseiFollowThrough = Math.max(0, senseiFollowThrough - dt);
+      ground.update(now, dt);
+
+      const flashP = flashUntil.player > now;
+      const flashE = flashUntil.sensei > now;
+      playerFighter.setTint(
+        flashP ? flashColor.player.getHex() : feedback.playerBlocking ? 0x35d0b8 : 0x000000,
+        flashP ? .82 : feedback.playerBlocking ? .28 : 0
+      );
+      senseiFighter.setTint(
+        flashE ? flashColor.sensei.getHex() : feedback.senseiWindingUp ? 0xffb347 : 0x000000,
+        flashE ? .82 : feedback.senseiWindingUp ? .42 : 0
+      );
+
+      // Idle breathing, upper-body weight shift and a small lift that keeps the low-poly body
+      // from sinking through the ground while the gameplay root is rotated for a knockdown.
+      const pDown = Math.min(1, Math.abs(playerFighter.root.rotation.z) / (Math.PI / 2));
+      const sDown = Math.min(1, Math.abs(senseiFighter.root.rotation.z) / (Math.PI / 2));
+      playerFighter.visual.position.y = Math.sin(time * 1.7) * .007 + pDown * .55;
+      senseiFighter.visual.position.y = Math.sin(time * 1.45 + 1.8) * .007 + sDown * .55;
+      const ease = Math.min(1, dt * 10);
+      playerFighter.upper.rotation.x += ((feedback.playerBlocking ? -.06 : 0) - playerFighter.upper.rotation.x) * ease;
+      playerFighter.upper.rotation.y += (feedback.swing * .16 - playerFighter.upper.rotation.y) * ease;
+      senseiFighter.upper.rotation.x += ((feedback.senseiWindingUp ? .1 : 0) - senseiFighter.upper.rotation.x) * ease;
+
+      const playerStaffX = feedback.playerBlocking ? 0 : Math.PI / 2;
+      playerFighter.stick.rotation.x += (playerStaffX - playerFighter.stick.rotation.x) * Math.min(1, dt * 16);
+      const senseiStaffX = feedback.senseiWindingUp ? .82 : Math.PI / 2;
+      const senseiStaffZ = feedback.senseiWindingUp ? .5 : senseiFollowThrough > 0 ? -.28 : 0;
+      senseiFighter.stick.rotation.x += (senseiStaffX - senseiFighter.stick.rotation.x) * Math.min(1, dt * 11);
+      senseiFighter.stick.rotation.z += (senseiStaffZ - senseiFighter.stick.rotation.z) * Math.min(1, dt * 14);
 
       const p = playerFighter.root.position;
       const e = senseiFighter.root.position;
@@ -190,8 +218,8 @@ export function createWorld(host) {
       if (locked && now - lastLook > 450) yawOffset *= Math.max(0, 1 - dt * 1.8);
       const lockAngle = Math.atan2(p.x - e.x, p.z - e.z);
       const angle = locked ? lockAngle + yawOffset : yaw;
-      const distance = aiming ? CONFIG.aimCameraDistance : CONFIG.cameraDistance;
-      const focus = new THREE.Vector3(mid.x, 1.15, mid.z);
+      const distance = feedback.aiming ? CONFIG.aimCameraDistance : CONFIG.cameraDistance;
+      const focus = new THREE.Vector3(mid.x, 1.18, mid.z);
       const target = new THREE.Vector3(
         focus.x + Math.sin(angle) * Math.cos(pitch) * distance,
         focus.y + Math.sin(pitch) * distance,
@@ -200,11 +228,18 @@ export function createWorld(host) {
       camera.position.lerp(target, 1 - Math.exp(-dt * 8));
       camera.lookAt(focus);
 
-      const fov = aiming ? CONFIG.aimFov : CONFIG.fov;
+      const fov = feedback.aiming ? CONFIG.aimFov : CONFIG.fov;
       if (Math.abs(camera.fov - fov) > .1) {
         camera.fov += (fov - camera.fov) * Math.min(1, dt * 8);
         camera.updateProjectionMatrix();
       }
+
+      playerShadow.position.set(p.x, .043, p.z);
+      senseiShadow.position.set(e.x, .043, e.z);
+      const pLift = Math.max(.55, 1 - Math.max(0, p.y) * .42);
+      const eLift = Math.max(.55, 1 - Math.max(0, e.y) * .42);
+      playerShadow.scale.set(pLift, pLift, 1);
+      senseiShadow.scale.set(eLift, eLift, 1);
 
       renderer.render(scene, camera);
     }

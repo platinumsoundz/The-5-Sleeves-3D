@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
 // Tunable prototype values. No progression or canon powers are implemented here.
 export const CONFIG = {
   // Movement
@@ -7,9 +8,10 @@ export const CONFIG = {
   dodgeTime: .42, dodgeSpeed: 7,
   // Player staff
   attackCooldown: .65, attackAnimTime: .28, range: 2.3, damage: 12,
-  // Vitals: stamina gates sprint/dodge/jump; sleeve charge is displayed but no ability uses it yet.
+  // Vitals: stamina gates sprint/dodge/jump. The Cipher Sleeve is not acquired in this scene,
+  // so no sleeve capacity or charge is represented yet.
   maxStamina: 100, staminaRegen: 20, staminaDelay: .7,
-  sprintCost: 16, dodgeCost: 18, jumpCost: 8, maxSleeve: 100,
+  sprintCost: 16, dodgeCost: 18, jumpCost: 8,
   // Shared nonlethal knockdown
   knockdown: 2.5,
   // Sensei sparring brain
@@ -47,6 +49,6 @@ export const CONFIG = {
   gamepadLookSpeed: 420,
   fov: 55,
   aimFov: 42,
-  cameraDistance: 10,
+  cameraDistance: 9.5,
   aimCameraDistance: 6.5
 };

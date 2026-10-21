@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 // Every DOM write lives here so Game stays testable without a document. Elements are injected,
 // never queried, and optional ones are tolerated for older shells.
 import { radarOffset } from './radar.js';
@@ -18,7 +19,12 @@ export class Hud {
     el.playerHealth.style.width = `${percent(state.playerHp)}%`;
     el.senseiHealth.style.width = `${percent(state.senseiHp)}%`;
     if (el.playerStamina) el.playerStamina.style.width = `${percent(state.stamina * 100)}%`;
-    if (el.sleeveCharge) el.sleeveCharge.style.width = `${percent(state.sleeve * 100)}%`;
+    if (el.sleeveVital) el.sleeveVital.hidden = !state.sleeveAcquired;
+    if (el.sleeveCharge && state.sleeveAcquired) {
+      el.sleeveCharge.style.width = Number.isFinite(state.sleeve)
+        ? `${percent(state.sleeve * 100)}%`
+        : '0%';
+    }
     if (el.warning) el.warning.hidden = !state.warning || !playing;
     el.message.textContent = state.message;
     el.prompt.textContent = state.prompt;

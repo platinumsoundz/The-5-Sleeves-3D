@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 // Sparring loop orchestrator: tutorial, movement, strikes, rounds and match completion.
 // Rules live in fighter/combat/ai/match; DOM writes live in hud.js, so this class stays
 // runnable under `node --test` with stub world, input and UI objects.
@@ -28,7 +29,7 @@ export class Game {
     this.ai = new SenseiAI();
     this.match = new Match();
     this.stamina = new Resource(CONFIG.maxStamina, { regen: CONFIG.staminaRegen, delay: CONFIG.staminaDelay });
-    this.sleeve = new Resource(CONFIG.maxSleeve);
+    this.sleeveAcquired = false;
     this.log = new EventFeed();
     this.progress = { xp: 0, cash: 0, permissions: [] };
     this.screen = 'playing';
@@ -72,7 +73,6 @@ export class Game {
     this.ai.reset();
     this.match.reset();
     this.stamina.reset();
-    this.sleeve.reset();
     this.resetFighters();
     this.input.reset();
     this.show(this.tip({
@@ -254,7 +254,6 @@ export class Game {
     }
 
     this.stamina.update(dt);
-    this.sleeve.update(dt);
     const move = this.input.move();
     const dx = move.x;
     const dz = move.z;
@@ -580,7 +579,7 @@ export class Game {
       permissions: this.progress.permissions,
       tutorialDone: this.phase !== 'tutorial',
       stamina: this.stamina.ratio,
-      sleeve: this.sleeve.ratio,
+      sleeveAcquired: this.sleeveAcquired,
       feed: this.log.items,
       player: { x: player.position.x, z: player.position.z, yaw: player.rotation.y },
       sensei: { x: sensei.position.x, z: sensei.position.z },

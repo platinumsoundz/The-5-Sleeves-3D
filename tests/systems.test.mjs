@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 import { Hud } from '../src/hud.js';
 // Headless checks for the shell systems: save data, bindings, dev codes, feed, radar, resources.
 import test from 'node:test';
@@ -164,7 +165,8 @@ test('HUD sync paints vitals, radar, feed and shell visibility', () => {
   });
   const feedLines = Array.from({ length: 6 }, node);
   const ui = {
-    phase: node(), playerHealth: node(), senseiHealth: node(), playerStamina: node(), sleeveCharge: node(),
+    phase: node(), playerHealth: node(), senseiHealth: node(), playerStamina: node(),
+    sleeveVital: node(), sleeveCharge: node(),
     message: node(), prompt: node(), device: node(), warning: node(), touchControls: node(),
     fire: node(), reticle: node(), pause: node(), skip: node(), restart: node(), result: node(),
     hud: node(), title: node(), resume: node(), settings: node(), mapScreen: node(),
@@ -176,15 +178,16 @@ test('HUD sync paints vitals, radar, feed and shell visibility', () => {
     menuResume: node()
   };
   const hud = new Hud(ui);
-  hud.sync({
+  const paintState = {
     screen: 'title', menuTab: 'status', menuFrom: 'title', phase: 'tutorial',
     playerHp: 75, senseiHp: 100, playerScore: 1, senseiScore: 2, needed: 3,
-    stamina: .5, sleeve: 1, xp: 12, cash: 34, tutorialDone: false, permissions: ['gear'],
+    stamina: .5, sleeveAcquired: false, xp: 12, cash: 34, tutorialDone: false, permissions: ['gear'],
     hasSave: false, warning: true, message: 'm', prompt: 'p', device: 'INPUT: TOUCH',
     touch: true, aiming: true, result: '', showSkip: true, showRestart: false,
     player: { x: 0, z: 0, yaw: Math.PI }, sensei: { x: 0, z: -5 }, arena: 5,
     feed: [{ text: 'first', kind: 'good' }, { text: 'second', kind: 'bad' }]
-  });
+  };
+  hud.sync(paintState);
 
   assert.equal(ui.hud.hidden, true);
   assert.equal(ui.title.hidden, false);
@@ -193,7 +196,10 @@ test('HUD sync paints vitals, radar, feed and shell visibility', () => {
   assert.equal(ui.touchControls.hidden, true);
   assert.equal(ui.playerHealth.style.width, '75%');
   assert.equal(ui.playerStamina.style.width, '50%');
-  assert.equal(ui.sleeveCharge.style.width, '100%');
+  assert.equal(ui.sleeveVital.hidden, true, 'the sleeve meter stays hidden before acquisition');
+  hud.sync({ ...paintState, sleeveAcquired: true });
+  assert.equal(ui.sleeveVital.hidden, false, 'the sleeve meter appears after acquisition');
+  assert.equal(ui.sleeveCharge.style.width, '0%', 'no charge is invented before a sleeve resource exists');
   assert.equal(ui.resume.disabled, true);
   assert.equal(ui.menuResume.textContent, 'BACK');
   assert.equal(ui.statXp.textContent, '12');

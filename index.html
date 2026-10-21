@@ -1,13 +1,14 @@
 <!doctype html>
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 -->
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) -->
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#182b25"><title>The 5 Sleeves — Training Ground</title><link rel="stylesheet" href="src/styles.css"></head><body>
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass) -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#141b19"><title>The 5 Sleeves — Training Ground</title><link rel="stylesheet" href="src/styles.css"></head><body>
 <main id="game">
   <div id="hud">
     <section id="vitals" aria-label="Vitals">
       <div class="vital"><b>HEALTH</b><div class="bar hp"><i id="player-health"></i></div></div>
       <div class="vital"><b>STAMINA</b><div class="bar stamina"><i id="player-stamina"></i></div></div>
-      <div class="vital"><b>SLEEVE</b><div class="bar sleeve"><i id="sleeve-charge"></i></div></div>
+      <div class="vital" id="sleeve-vital" hidden><b>SLEEVE</b><div class="bar sleeve"><i id="sleeve-charge"></i></div></div>
     </section>
     <div id="radar" role="button" tabindex="0" aria-label="Radar — open map">
       <div class="radar-ring"></div><div class="radar-cross"></div>
@@ -51,7 +52,7 @@
     <div class="title-card">
       <p class="eyebrow">A TRAINING GROUND PROTOTYPE</p>
       <h1>THE <span>5</span> SLEEVES</h1>
-      <p class="tagline">One sleeve. One teacher. No lethal blows.</p>
+      <p class="tagline">One teacher. One lesson. No lethal blows.</p>
       <div class="title-actions">
         <button id="start" type="button">START TRAINING</button>
         <button id="resume" type="button" disabled>RESUME</button>
@@ -79,7 +80,7 @@
       <div class="menu-body">
         <section data-page="status">
           <h3>CHARACTER</h3>
-          <p class="muted">The Sleeve is a left-arm training tool in this prototype. No Cipher powers are active.</p>
+          <p class="muted">This is the pre-discovery training ground. The Cipher Sleeve has not been acquired, so no Sleeve systems or powers are active.</p>
           <dl class="stat-grid">
             <div><dt>XP (dev)</dt><dd id="stat-xp">0</dd></div>
             <div><dt>Cash (dev)</dt><dd id="stat-cash">0</dd></div>
@@ -93,7 +94,7 @@
 
         <section data-page="gear" hidden>
           <h3>EQUIPPED</h3>
-          <div class="gear-slot"><span>LEFT SLEEVE</span><b>Standard training sleeve</b><em>Training issue</em></div>
+          <div class="gear-slot"><span>LEFT ARM</span><b>Wrapped forearm</b><em>Cipher Sleeve not acquired</em></div>
           <div class="gear-slot"><span>STAFF</span><b>Padded sparring staff</b><em>Nonlethal</em></div>
           <h3>INVENTORY</h3>
           <p class="muted">Empty — 0 / 12 slots. Item pickups will post to the event feed once loot exists; nothing here changes combat yet.</p>
@@ -153,7 +154,7 @@
           <p id="devresult" role="status"></p>
           <h3>MULTIPLAYER</h3>
           <p class="muted">In development — not available in this build. One opponent only.</p>
-          <p class="version">Prototype v0.1 · nonlethal spar · staff only</p>
+          <p class="version">Pre-Cipher training ground · staff spar</p>
         </section>
       </div>
     </div>

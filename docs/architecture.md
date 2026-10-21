@@ -5,9 +5,10 @@ standard gamepad and touch into named actions plus an analog move vector and rig
 nothing downstream reads raw device codes or touch coordinates. Bindings are sanitized in
 `bindings.js`, and remapping swaps displaced keys/buttons so no action silently loses its input.
 Pure deadzone/joystick math lives in `controls.js` so it can be tested without a browser.
-`world.js` owns the Three.js scene, procedural fighters, arena, yaw/pitch orbit camera, aim zoom
-and viewport. `game.js` orchestrates screens, tutorial, movement, strikes, rounds, saves and match
-end, and is the only class the browser entry point touches.
+`world.js` owns the Three.js scene, camera, aim zoom and viewport. `scenery.js` builds the
+procedural settlement set dressing and ambient animation; `characters.js` builds the Ajaye and
+Sensei whitebox silhouettes. `game.js` orchestrates screens, tutorial, movement, strikes, rounds,
+saves and match end, and is the only class the browser entry point touches.
 
 Rules are split so they cannot drift apart and can be tested without a renderer:
 
@@ -25,9 +26,16 @@ Rules are split so they cannot drift apart and can be tested without a renderer:
 | `save.js` | versioned local save slot, sanitize/load/write/delete |
 | `devcodes.js` | developer code registry and pure save transforms |
 | `radar.js` | forward-up world-to-radar projection |
-| `resources.js` | clamped regenerating stamina/sleeve resource |
+| `resources.js` | clamped regenerating stamina resource |
 | `log.js` | bounded HUD event feed |
 | `config.js` | tuning values only |
+
+`scenery.js` and `characters.js` import Three.js and are browser-only presentation modules:
+`world.js` composes them and never reads gameplay rules from them. They share low-poly geometry,
+cached materials and a canvas-texture ground/sky; no shadow maps or post-processing is used.
+The training scene is the pre-Cipher settlement: Ajaye has wrapped forearms and no Sleeve, the
+sleeve HUD meter is hidden, and the set dressing is generic repaired infrastructure, not story
+locations or named props.
 
 `game.js` passes stub world/input/ui objects in tests, so no module below it may touch
 `document`, `window` or `THREE`. New presentation concerns subscribe to `events` or extend
@@ -39,10 +47,10 @@ guard keeps blocking; three blocked hits inside the window break the guard. All 
 live in `combat.js`, never in the input layer.
 
 Presentation is push-only: `main.js` passes `setFeedback({ senseiWindingUp, playerBlocking,
-aiming })` to `world.js` each frame, forwards gamepad look and `hit`/`parry`/`block` events, and
-`world.look(dx, dy)` handles mouse/touch drags internally. No render module reads gameplay state
-directly. The frame loop skips updates while the document is hidden, and `index.html` reports a
-load failure if the CDN module never arrives.
+aiming, swing })` to `world.js` each frame, forwards gamepad look and `hit`/`parry`/`block` events,
+and `world.look(dx, dy)` handles mouse/touch drags internally. No render module reads gameplay
+state directly. The frame loop skips updates while the document is hidden, and `index.html` reports
+a load failure if the CDN module never arrives.
 
 Touch is laid out like a mobile shooter: the joystick owns the bottom-left, the right 45% of the
 canvas is the look area, and the right cluster holds aim/attack/jump/guard/crouch/sprint/use.
@@ -68,9 +76,14 @@ down; a downed player must confirm before the next round starts, while Sensei re
 XP/money progression, inventory/skill content and Cipher powers remain deferred, with extension
 points preserved. Dev codes may write placeholder XP/cash/permissions, but nothing consumes them
 in combat. Cipher abilities must sit behind a future ability interface, and Ajaye's Sleeve stays
-left-arm-only if shown. The sleeve meter is display-only for now. Browser execution has not been
-verified.
+left-arm-only if shown. The Cipher Sleeve is not acquired in the opening training scene, so no
+sleeve capacity is modelled and the sleeve HUD meter stays hidden until an acquisition system
+exists. The owner has browser-tested the pre-visual build on the S23+ at 120 FPS with no reported
+errors; the new settlement/character visual pass still needs its own browser check. Touch-button
+size, placement and feel remain deferred at the owner's request.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)

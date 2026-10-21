@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
 // Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -16,7 +17,7 @@ const input = new Input();
 const game = new Game(world, input, {
   prompt: $('#prompt'), message: $('#message'),
   phase: $('#phase'), score: $('#score'), playerHealth: $('#player-health'),
-  playerStamina: $('#player-stamina'), sleeveCharge: $('#sleeve-charge'),
+  playerStamina: $('#player-stamina'), sleeveVital: $('#sleeve-vital'), sleeveCharge: $('#sleeve-charge'),
   senseiHealth: $('#sensei-health'), result: $('#result'),
   skip: $('#skip'), restart: $('#restart'), device: $('#device'),
   warning: $('#warning'), touchControls: $('#touch-controls'),
@@ -237,7 +238,8 @@ function frame(now) {
     world.setFeedback({
       senseiWindingUp: game.ai.windingUp,
       playerBlocking: game.blocking,
-      aiming: game.aiming
+      aiming: game.aiming,
+      swing: game.playerCombat.swingAngle
     });
     world.render(dt);
     sampleFrames += 1;

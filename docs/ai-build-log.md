@@ -226,3 +226,61 @@ pass if size/opacity/handedness is insufficient.
 - `.nojekyll` remains for a future GitHub Pages enablement.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (settlement/character visual pass)
+
+**Scope:** owner reported the browser build smooth at 120 FPS with no issues beyond the deferred
+touch-button layout, asked to hide the sleeve meter until the Cipher Sleeve is acquired, and asked
+to finish the visual, character and scenery pass.
+
+**Files:** `index.html`, `src/styles.css`, `src/config.js`, `src/game.js`, `src/hud.js`, `src/main.js`,
+`src/world.js`, new `src/scenery.js` and `src/characters.js`, `src/resources.js` (comment),
+`tests/systems.test.mjs`, `README.md`, `docs/architecture.md`, `docs/decision-log.md`,
+`docs/memory/02-gameplay.md`, `docs/memory/03-technical.md`, `docs/memory/05-visual-style.md`,
+`docs/roadmap.md`.
+
+**Visuals and characters**
+
+- Added `src/scenery.js`: a repaired settlement training yard with patched perimeter fence and gate,
+  workshop, house with warm windows and chimney smoke, market awning, rain barrel/hand pump, solar
+  array and battery, air-scrubber fan, laundry, crates/barrels/sacks, staff rack, trees, ring markers,
+  a path, distant water tower/relay mast, procedural hills, canvas ground/sky textures, dust and a
+  green-grey fogline. No shadow maps, post-processing or external art assets.
+- Added `src/characters.js`: low-poly Ajaye and Sensei silhouettes with layered clothing, utility
+  gear, hair, simple faces and a padded staff. Ajaye has **no Cipher Sleeve**, only wrapped forearms;
+  Sensei has tied-back hair and facial hair. Both keep the old `root/body/stick` contract, support
+  whole-body hit/wind-up/block tints and use idle breathing, guard staff angle and sensei wind-up
+  animation.
+- Rewrote `src/world.js` composition for the new modules, warm dawn/cool fill lighting, ACES tone
+  mapping, atmospheric fog, canvas sky, contact character shadows and upper-body/staff presentation.
+  `main.js` now passes the player swing angle into `setFeedback`.
+- Updated title/menu/HUD palette and copy toward the charcoal/slate/rust/olive plus restrained amber
+  language. Character/gear pages now say the Cipher Sleeve is not yet acquired. Touch layout was left
+  untouched as requested.
+
+**Sleeve gating**
+
+- Removed `maxSleeve` and the runtime sleeve `Resource`; added `sleeveAcquired: false` presentation
+  state. `#sleeve-vital` is hidden by default and `Hud.sync` keeps it hidden until `sleeveAcquired`.
+  No replacement capacity, charge or ability was invented. Radar/feed were pulled up to close the
+  gap left by the missing third bar.
+
+**Verification:** `npm test` → 53/53; `node --check` clean on every `src/*.js` and test file. A
+local Three.js smoke harness (not committed) built the scene with a stub canvas, exercised both
+fighters and `update()`, then ran `createWorld`/`render()` with a stub renderer. Static-material
+batching reduced scenery to 41 meshes/points and each fighter to 24/22 meshes, keeping the expected
+draw-call budget low. The owner's 120 FPS browser report applies to the pre-visual build. The new
+scenery/character pass has **not** been browser-rendered here; no claim is made about its frame
+rate, composition, clipping, staff grip or character likeness.
+
+**Gaps / next model:** run the new build on the S23+ and inspect fog/sky seams, prop clipping, character
+proportions, staff grip during swing/block, contact shadows and draw-call cost. Touch-button layout
+and per-button placement remain deferred. Reference sheets are still required before final likeness
+and before any Cipher Sleeve mesh is added. Do not add Korb, Cipher, tower, module or energy content
+to this scene without approval.
+
+**Provenance note:** the owner-supplied ChatGPT canon/visual docs committed before this pass remain
+unsigned and have no separate build-log entry; they are treated as owner-provided reference material.
+This agent did not author or alter their canon claims.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22

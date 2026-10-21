@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
-// A clamped regenerating resource (stamina, sleeve charge). Pure and frame-rate independent.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve capacity removed from the training scene)
+// A clamped regenerating resource (currently stamina). Pure and frame-rate independent.
 export class Resource {
   constructor(max, { regen = 0, delay = 0 } = {}) {
     this.max = max;
