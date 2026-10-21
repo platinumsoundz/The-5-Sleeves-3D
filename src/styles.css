@@ -268,7 +268,9 @@ h3 {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .menu-frame, #map-screen {
-  width: min(960px, 100%); max-height: min(760px, 96dvh);
+  width: min(960px, 100%);
+  max-height: min(760px, 96vh);
+  max-height: min(760px, 96dvh);
 }
 .menu-frame {
   display: flex; flex-direction: column; min-height: 0;
