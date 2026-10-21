@@ -296,6 +296,7 @@ h3 {
 }
 #menu-tabs button.active { color: var(--gold-soft); border-bottom-color: var(--gold); background: #ffffff08; }
 .menu-body {
+  flex: 1 1 auto; min-height: 0;
   padding: 16px 22px 28px; overflow-y: auto; overscroll-behavior: contain;
   touch-action: pan-y; -webkit-overflow-scrolling: touch;
 }
