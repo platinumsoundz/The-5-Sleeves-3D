@@ -213,3 +213,16 @@ Resume should also restore the current spar score; add per-button touch drag pla
 pass if size/opacity/handedness is insufficient.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+## 2026-10-21 — opencode/deepseek-v4.1-flash-free (test link)
+
+- The prototype is static: `index.html` loads ES modules directly and three.js comes from jsDelivr,
+  so there is no build step. GitHub Pages could not be enabled from this session's token (no Pages
+  permission), and the token also lacks `workflow` scope, so a Pages workflow could not be pushed.
+- Test link uses raw.githack's GitHub CDN with correct MIME types for HTML, CSS and JS:
+  https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/main/index.html
+- All `src/*.js`, `src/styles.css` and the three.js CDN URL were fetched successfully through that
+  host. Browser rendering/touch behaviour is still not verified.
+- `.nojekyll` remains for a future GitHub Pages enablement.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
