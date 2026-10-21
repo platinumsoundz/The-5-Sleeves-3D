@@ -6,12 +6,12 @@
 - Staff first; keep weapon/ability interfaces open for Cipher later. No deaths; either fighter can be knocked down. Press A/confirm to recover.
 - Hold LT/RMB to aim and lock on. RT/LMB attacks with the current staff action. A/Space jumps, B/Q guards, X/F interacts, L3/Shift sprints, R3/Ctrl crouches; Enter or Space confirms/get up. Camera movement should cycle targets when there are multiple; first scene has one opponent.
 - Touch follows a Call of Duty Mobile-style layout: analog movement stick bottom-left; drag the right side of the screen to look; hold AIM on the right to zoom/lock (and keep looking with another finger) while a FIRE button appears under the left thumb; all other buttons sit bottom-right.
-- Support touch, keyboard/mouse, Xbox/PlayStation/third-party controllers, detected-input annotations, and future remapping.
-- XP/currency are not in the prototype, but future progression should be a separate module. Local saves are acceptable later; cloud persistence deferred.
+- Support touch, keyboard/mouse, Xbox/PlayStation/third-party controllers and detected-input annotations. Keyboard/controller buttons are remappable in the Controls page; touch supports size, opacity and a left-handed layout (per-button drag positioning is still deferred).
+- XP/currency are not real progression yet, but the STATUS page and dev codes can hold placeholder values. Local saves are implemented; cloud persistence deferred.
 - Target 30 FPS baseline on S23+; higher refresh modes are later best-effort options, not guaranteed.
 
 ## Deferred
-Physical ragdoll; multi-target cycling; full remapping UI; saves; progression; inventory; Sleeve skills; online networking; final art.
+Physical ragdoll; multi-target cycling; real progression/XP/currency; inventory and skill-tree content; per-button drag placement for touch; Sleeve abilities; online networking/multiplayer; final art.
 
 ## Working (built, headless-tested, not yet browser-tested)
 - Sparring win condition: knockdowns are points, first to 3 wins, then a result screen and restart.
@@ -28,6 +28,12 @@ Physical ragdoll; multi-target cycling; full remapping UI; saves; progression; i
 - Aim mode: FOV eases 55→42 and camera distance 10→6.5; a centre reticle appears. On touch the right STAFF button is replaced by a left FIRE button.
 - Touch look area is the right 45% of the canvas; the left side belongs to the joystick. A locked aim offsets the camera and recentres 0.45s after the last drag.
 - All sensitivities, deadzones, FOV and camera distance are placeholder values in `src/config.js`.
-- Pause: Esc or the MENU button freezes the simulation and opens look sensitivity (0.4–2×), invert-Y and graphics quality (performance 1×, balanced ≤1.5×, sharp ≤2.5× pixel ratio). Settings persist in local storage; no other save data exists.
+- Shell: title screen with Start, Resume (disabled until a save exists), Settings and a visible but disabled “Multiplayer · in development” button. Start/Esc opens the menu; Select/Tab/M opens the map. The menu pages are STATUS (XP/cash placeholders, tutorial, knockdowns, permissions), GEAR (equipped placeholders), SKILLS (locked placeholder), MAP, CONTROLS (settings + remapping + touch layout) and SYSTEM (save/delete, dev codes, multiplayer note).
+- Save: SYSTEM → SAVE GAME writes tutorial completion, dev-granted XP/cash and permissions to `five-sleeves.save.v1`. Resume restores them; Delete removes the slot. Settings, bindings and touch layout persist separately.
+- Dev codes: `DEV-XP-500`, `DEV-CASH-1000` and `DEV-GEAR-SLEEVE` are placeholders for the eventual code list; they grant save values/permissions and log to the feed. No real weapons or economy yet.
+- HUD: top-left health/stamina/sleeve bars, radar beneath, then the event feed; MENU top centre with score beneath; Sensei health/phase top right. Stamina drains while sprinting and is spent by jumps/dodges; the sleeve meter is display-only because no ability exists yet.
+- Pause/settings: menu freezes simulation; look sensitivity (0.4–2×), invert-Y and graphics quality (performance 1×, balanced ≤1.5×, sharp ≤2.5× pixel ratio) plus remapping and touch layout all persist in local storage.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)

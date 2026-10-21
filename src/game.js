@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // Sparring loop orchestrator: tutorial, movement, strikes, rounds and match completion.
 // Rules live in fighter/combat/ai/match; DOM writes live in hud.js, so this class stays
 // runnable under `node --test` with stub world, input and UI objects.
@@ -9,6 +10,10 @@ import { CombatState } from './combat.js';
 import { SenseiAI } from './ai.js';
 import { Match } from './match.js';
 import { Hud } from './hud.js';
+import { Resource } from './resources.js';
+import { EventFeed } from './log.js';
+import { deleteSave, writeSave } from './save.js';
+import { redeemDevCode } from './devcodes.js';
 
 const START = { player: 2.5, sensei: -2.5 };
 const clamp = n => Math.max(-CONFIG.arenaLimit, Math.min(CONFIG.arenaLimit, n));
@@ -22,6 +27,14 @@ export class Game {
     this.playerCombat = new CombatState();
     this.ai = new SenseiAI();
     this.match = new Match();
+    this.stamina = new Resource(CONFIG.maxStamina, { regen: CONFIG.staminaRegen, delay: CONFIG.staminaDelay });
+    this.sleeve = new Resource(CONFIG.maxSleeve);
+    this.log = new EventFeed();
+    this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.screen = 'playing';
+    this.menuTab = 'status';
+    this.menuFrom = 'playing';
+    this.saveInfo = null;
     ui.skip.onclick = () => this.finishTutorial();
     ui.restart.onclick = () => this.restart();
     this.restart();
@@ -45,6 +58,8 @@ export class Game {
     this.locked = false;
     this.aiming = false;
     this.blocking = false;
+    this.screen = 'playing';
+    this.menuFrom = 'playing';
     this.paused = false;
     this.roundTimer = 0;
     this.resultText = '';
@@ -56,6 +71,8 @@ export class Game {
     this.playerCombat.reset();
     this.ai.reset();
     this.match.reset();
+    this.stamina.reset();
+    this.sleeve.reset();
     this.resetFighters();
     this.input.reset();
     this.show(this.tip({
@@ -67,12 +84,128 @@ export class Game {
     this.events.emit('reset');
   }
 
+  get hasSave() {
+    return this.saveInfo !== null;
+  }
+
+  showTitle() {
+    this.screen = 'title';
+    this.menuFrom = 'title';
+    this.paused = true;
+    this.paint();
+  }
+
+  startNew() {
+    this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.log.clear();
+    this.restart();
+    this.log.push('Training started.', 'info');
+    this.paint();
+  }
+
+  applySave(save) {
+    this.progress = {
+      xp: save?.xp || 0,
+      cash: save?.cash || 0,
+      permissions: Array.isArray(save?.permissions) ? [...save.permissions] : []
+    };
+  }
+
+  resume(save) {
+    const restored = save || this.saveInfo;
+    if (!restored) return false;
+    this.applySave(restored);
+    this.restart();
+    if (restored.tutorialDone) this.finishTutorial();
+    this.log.push('Save loaded.', 'good');
+    this.paint();
+    return true;
+  }
+
+  buildSave() {
+    return {
+      tutorialDone: this.phase !== 'tutorial',
+      xp: this.progress.xp,
+      cash: this.progress.cash,
+      permissions: [...this.progress.permissions]
+    };
+  }
+
+  saveGame(storage) {
+    this.saveInfo = writeSave(storage, this.buildSave());
+    this.log.push('Game saved.', 'good');
+    this.paint();
+    return this.saveInfo;
+  }
+
+  clearSave(storage) {
+    deleteSave(storage);
+    this.saveInfo = null;
+    this.log.push('Save deleted.', 'warn');
+    this.paint();
+  }
+
+  redeemDev(raw) {
+    const result = redeemDevCode(this.progress, raw);
+    if (result.ok) {
+      this.progress = result.save;
+      this.log.push(result.message, 'loot');
+    }
+    this.paint();
+    return result;
+  }
+
+  setSaveInfo(save) {
+    this.saveInfo = save;
+    this.paint();
+  }
+
+  openMenu(tab = 'status') {
+    this.menuFrom = this.screen === 'title' ? 'title' : 'playing';
+    this.menuTab = tab;
+    this.screen = 'menu';
+    this.paused = true;
+    this.paint();
+  }
+
+  closeMenu() {
+    if (this.screen !== 'menu') return;
+    if (this.menuFrom === 'title') {
+      this.showTitle();
+      return;
+    }
+    this.screen = 'playing';
+    this.paused = false;
+    this.paint();
+  }
+
+  setMenuTab(tab) {
+    this.menuTab = tab;
+    this.paint();
+  }
+
+  openMap() {
+    if (this.screen === 'title' || this.screen === 'map') return;
+    this.mapFrom = this.screen === 'menu' ? 'menu' : 'playing';
+    this.screen = 'map';
+    this.paused = true;
+    this.paint();
+  }
+
+  closeMap() {
+    if (this.screen !== 'map') return;
+    this.screen = this.mapFrom === 'menu' ? 'menu' : 'playing';
+    this.paused = this.screen !== 'playing';
+    this.paint();
+  }
+
   finishTutorial() {
     if (this.phase !== 'tutorial') return;
     this.phase = 'spar';
     this.skipVisible = false;
     this.restartVisible = true;
     this.show(`Free spar: first to ${this.match.needed} knockdowns wins. Sensei recovers on his own.`);
+    this.log.push(`Free spar — first to ${this.match.needed} knockdowns.`, 'info');
     this.events.emit('tutorial-end');
     this.paint();
   }
@@ -84,15 +217,44 @@ export class Game {
 
   update(dt) {
     this.input.update(dt);
-    if (this.input.consume('pause') && this.phase !== 'result') {
-      this.paused = !this.paused;
-      this.events.emit('pause', { paused: this.paused });
-    }
-    if (this.paused) {
+
+    if (this.screen === 'title') {
+      if (this.input.consume('menu') || this.input.consume('confirm') || this.input.consume('jump')) {
+        this.startNew();
+      }
       this.paint();
       this.input.endFrame();
       return;
     }
+
+    if (this.screen === 'menu') {
+      if (this.input.consume('menu')) this.closeMenu();
+      else if (this.input.consume('map')) this.openMap();
+      this.paint();
+      this.input.endFrame();
+      return;
+    }
+
+    if (this.screen === 'map') {
+      if (this.input.consume('menu') || this.input.consume('map')) this.closeMap();
+      this.paint();
+      this.input.endFrame();
+      return;
+    }
+
+    if (this.input.consume('menu')) {
+      this.openMenu('status');
+      this.input.endFrame();
+      return;
+    }
+    if (this.input.consume('map')) {
+      this.openMap();
+      this.input.endFrame();
+      return;
+    }
+
+    this.stamina.update(dt);
+    this.sleeve.update(dt);
     const move = this.input.move();
     const dx = move.x;
     const dz = move.z;
@@ -162,7 +324,10 @@ export class Game {
   movePlayer(dt, dx, dz) {
     const player = this.world.player;
     const sensei = this.world.sensei;
-    const speed = (this.input.isDown('sprint') ? CONFIG.sprint : CONFIG.move)
+    const sprinting = this.input.isDown('sprint') && !this.blocking
+      && (dx || dz) && this.stamina.value > 0;
+    if (sprinting) this.stamina.drain(CONFIG.sprintCost, dt);
+    const speed = (sprinting ? CONFIG.sprint : CONFIG.move)
       * (this.blocking ? CONFIG.guardSpeed : 1);
 
     if (this.playerCombat.dodgeTimer > 0) {
@@ -183,7 +348,9 @@ export class Game {
 
     player.scale.y = this.input.isDown('crouch') ? 0.68 : 1;
 
-    if (this.input.consume('jump') && player.position.y <= 0.01) player.userData.vy = CONFIG.jump;
+    if (this.input.consume('jump') && player.position.y <= 0.01 && this.stamina.spend(CONFIG.jumpCost)) {
+      player.userData.vy = CONFIG.jump;
+    }
     if (player.userData.vy) {
       player.position.y += player.userData.vy * dt;
       player.userData.vy -= CONFIG.gravity * dt;
@@ -191,7 +358,7 @@ export class Game {
     }
 
     if (this.input.consume('guard')) {
-      if (dx || dz) {
+      if ((dx || dz) && this.stamina.spend(CONFIG.dodgeCost)) {
         this.playerCombat.beginDodge(dx, dz, player.rotation.y);
         this.playerCombat.clearBlockPressure();
         this.events.emit('dodge');
@@ -271,6 +438,7 @@ export class Game {
         this.ai.stagger();
         this.knockback(sensei, player, CONFIG.knockback * 2);
         this.show('Parried. Sensei is open.');
+        this.log.push('Parried — Sensei is open.', 'good');
         this.events.emit('parry');
         return;
       }
@@ -283,6 +451,7 @@ export class Game {
         if (this.blocking && this.playerCombat.registerBlock()) {
           this.events.emit('block', { target: 'player' });
           this.events.emit('guard-break');
+          this.log.push('Guard broken — give ground.', 'warn');
           this.show('Guard broken — give ground and reset.');
         } else {
           this.events.emit(this.blocking ? 'block' : 'hit', { target: 'player' });
@@ -298,8 +467,10 @@ export class Game {
     if (ended) {
       this.finishMatch();
     } else if (scorer === 'player') {
+      this.log.push('Sensei down — +1 knockdown.', 'good');
       this.show('Sensei is down. He will recover shortly.');
     } else {
+      this.log.push('Sensei scores a knockdown.', 'bad');
       this.show('Downed. Wait, then press A / Enter / confirm to get up.');
     }
   }
@@ -310,6 +481,7 @@ export class Game {
     this.skipVisible = false;
     this.restartVisible = true;
     this.show(`Spar complete — ${this.match.score}. Restart to spar again.`);
+    this.log.push(this.match.winner === 'player' ? 'Spar won.' : 'Spar lost — Sensei takes it.', 'info');
     this.events.emit('match-end', { winner: this.match.winner });
     this.paint();
   }
@@ -377,6 +549,8 @@ export class Game {
   }
 
   paint() {
+    const player = this.world.player;
+    const sensei = this.world.sensei;
     this.hud.sync({
       phase: this.phase,
       playerHp: this.player.hp,
@@ -392,10 +566,25 @@ export class Game {
       device: this.input.deviceLabel(),
       touch: this.input.device === 'touch',
       aiming: this.aiming,
-      paused: this.paused,
+      paused: this.screen !== 'playing',
       result: this.resultText,
       showSkip: this.skipVisible,
-      showRestart: this.restartVisible
+      showRestart: this.restartVisible,
+      screen: this.screen,
+      menuTab: this.menuTab,
+      menuFrom: this.menuFrom,
+      hasSave: this.hasSave,
+      save: this.saveInfo,
+      xp: this.progress.xp,
+      cash: this.progress.cash,
+      permissions: this.progress.permissions,
+      tutorialDone: this.phase !== 'tutorial',
+      stamina: this.stamina.ratio,
+      sleeve: this.sleeve.ratio,
+      feed: this.log.items,
+      player: { x: player.position.x, z: player.position.z, yaw: player.rotation.y },
+      sensei: { x: sensei.position.x, z: sensei.position.z },
+      arena: CONFIG.arenaLimit
     });
   }
 }

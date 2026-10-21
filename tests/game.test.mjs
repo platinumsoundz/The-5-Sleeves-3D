@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // Headless checks for every rules module plus the Game wiring. No renderer and no DOM: world,
 // input and UI are stubs. Visual layout, camera, touch and gamepad still need the device pass
 // described in docs/memory/03-technical.md.
@@ -12,8 +13,9 @@ import { SenseiAI } from '../src/ai.js';
 import { Match } from '../src/match.js';
 import { Game } from '../src/game.js';
 import { clamp, deadzone, joystick } from '../src/controls.js';
-import { KEYS } from '../src/input.js';
+import { BINDING_ACTIONS, DEFAULT_GAMEPAD, DEFAULT_KEYBOARD } from '../src/bindings.js';
 import { DEFAULTS, loadSettings, sanitize, saveSettings, SETTINGS_KEY } from '../src/settings.js';
+import { loadSave, writeSave } from '../src/save.js';
 
 const DT = 1 / 60;
 const frames = seconds => Math.ceil(seconds / DT) + 2;
@@ -698,15 +700,21 @@ test('deadzone rescales instead of snapping to full tilt', () => {
 });
 
 test('PC bindings follow the shooter layout', () => {
-  assert.equal(KEYS.KeyW, 'forward');
-  assert.equal(KEYS.KeyF, 'interact');
-  assert.equal(KEYS.Space, 'jump');
-  assert.equal(KEYS.ShiftLeft, 'sprint');
-  assert.equal(KEYS.ControlLeft, 'crouch');
-  assert.equal(KEYS.KeyQ, 'guard');
-  assert.equal(KEYS.KeyJ, 'attack');
-  assert.equal(KEYS.Enter, 'confirm');
-  assert.equal(KEYS.KeyE, undefined, 'E is no longer aim; RMB/LT own that');
+  assert.ok(DEFAULT_KEYBOARD.forward.includes('KeyW'));
+  assert.ok(DEFAULT_KEYBOARD.interact.includes('KeyF'));
+  assert.ok(DEFAULT_KEYBOARD.jump.includes('Space'));
+  assert.ok(DEFAULT_KEYBOARD.sprint.includes('ShiftLeft'));
+  assert.ok(DEFAULT_KEYBOARD.crouch.includes('ControlLeft'));
+  assert.ok(DEFAULT_KEYBOARD.guard.includes('KeyQ'));
+  assert.ok(DEFAULT_KEYBOARD.attack.includes('KeyJ'));
+  assert.ok(DEFAULT_KEYBOARD.confirm.includes('Enter'));
+  assert.ok(DEFAULT_KEYBOARD.menu.includes('Escape'), 'Start / Esc opens the menu');
+  assert.ok(DEFAULT_KEYBOARD.map.includes('Tab'), 'Select / Tab opens the map');
+  assert.equal(DEFAULT_KEYBOARD.aim.length, 0, 'aim belongs to RMB/LT');
+  assert.ok(BINDING_ACTIONS.includes('menu'));
+  assert.equal(DEFAULT_GAMEPAD.attack[0], 7);
+  assert.equal(DEFAULT_GAMEPAD.menu[0], 9);
+  assert.equal(DEFAULT_GAMEPAD.map[0], 8);
 });
 
 test('analog move magnitude scales travel speed', () => {
@@ -771,8 +779,12 @@ test('settings clamp, default and round-trip through storage', () => {
   };
   assert.deepEqual(loadSettings(storage), DEFAULTS);
 
+  assert.equal(sanitize({ touchScale: 9 }).touchScale, 1.35);
+  assert.equal(sanitize({ touchOpacity: .1 }).touchOpacity, .4);
+  assert.equal(sanitize({ leftHanded: 'true' }).leftHanded, true);
+
   const saved = saveSettings(storage, { sensitivity: 1.35, invertY: true, quality: 'sharp' });
-  assert.deepEqual(saved, { sensitivity: 1.35, invertY: true, quality: 'sharp' });
+  assert.deepEqual(saved, { ...DEFAULTS, sensitivity: 1.35, invertY: true, quality: 'sharp' });
   assert.deepEqual(loadSettings(storage), saved);
   assert.equal(store.has(SETTINGS_KEY), true);
 
@@ -786,15 +798,15 @@ test('settings clamp, default and round-trip through storage', () => {
   assert.deepEqual(saveSettings(failing, DEFAULTS), DEFAULTS);
 });
 
-test('pause freezes the spar and resumes where it stopped', () => withAccuracy(1, () => {
+test('menu freezes the spar and resumes where it stopped', () => withAccuracy(1, () => {
   const { game, world, input, ui } = makeGame();
   game.finishTutorial();
   world.player.position.set(0, 0, -1);
-  assert.equal(KEYS.Escape, 'pause');
 
-  input.press('pause');
+  input.press('menu');
   step(game);
   assert.equal(game.paused, true);
+  assert.equal(game.screen, 'menu');
   assert.equal(ui.settings.hidden, false);
   assert.equal(ui.pause.hidden, true);
 
@@ -802,19 +814,123 @@ test('pause freezes the spar and resumes where it stopped', () => withAccuracy(1
   assert.equal(game.playerHp, 100, 'no strikes resolve while paused');
   assert.equal(game.ai.state, 'idle');
 
-  input.press('pause');
+  input.press('menu');
   step(game);
   assert.equal(game.paused, false);
+  assert.equal(game.screen, 'playing');
   assert.equal(ui.settings.hidden, true);
   step(game, frames(CONFIG.senseiWindup));
   assert.equal(game.playerHp, 100 - CONFIG.senseiDamage);
 }));
 
+function memoryStorage() {
+  const map = new Map();
+  return {
+    map,
+    getItem: key => map.get(key) ?? null,
+    setItem: (key, value) => map.set(key, value),
+    removeItem: key => map.delete(key)
+  };
+}
+
+test('title, menu and select-map screens pause and return sensibly', () => {
+  const { game, input } = makeGame();
+  game.showTitle();
+  assert.equal(game.screen, 'title');
+  assert.equal(game.paused, true);
+  assert.equal(game.hasSave, false);
+
+  game.openMenu('controls');
+  assert.equal(game.screen, 'menu');
+  assert.equal(game.menuFrom, 'title');
+  game.closeMenu();
+  assert.equal(game.screen, 'title', 'settings opened from the title returns to the title');
+
+  input.press('menu');
+  step(game);
+  assert.equal(game.screen, 'playing', 'Start / Esc begins training from the title');
+  assert.equal(game.phase, 'tutorial');
+
+  input.press('map');
+  step(game);
+  assert.equal(game.screen, 'map');
+  assert.equal(game.paused, true);
+  game.closeMap();
+  assert.equal(game.screen, 'playing');
+
+  game.openMenu('map');
+  game.openMap();
+  assert.equal(game.screen, 'map');
+  game.closeMap();
+  assert.equal(game.screen, 'menu', 'Select from the menu returns to the menu');
+  game.setMenuTab('system');
+  assert.equal(game.menuTab, 'system');
+  game.closeMenu();
+  assert.equal(game.screen, 'playing');
+});
+
+test('save files restore tutorial progress and developer grants', () => {
+  const store = memoryStorage();
+  const first = makeGame();
+  first.game.finishTutorial();
+  assert.equal(first.game.redeemDev('DEV-XP-500').ok, true);
+  assert.equal(first.game.redeemDev('DEV-CASH-1000').ok, true);
+  assert.equal(first.game.redeemDev('DEV-GEAR-SLEEVE').ok, true);
+  const saved = first.game.saveGame(store);
+  assert.equal(first.game.hasSave, true);
+  assert.equal(saved.tutorialDone, true);
+  assert.equal(saved.xp, 500);
+  assert.equal(saved.cash, 1000);
+  assert.deepEqual(saved.permissions, ['sleeve-prototype']);
+
+  const restored = loadSave(store);
+  assert.deepEqual(restored, saved);
+  const second = makeGame();
+  second.game.setSaveInfo(restored);
+  assert.equal(second.game.hasSave, true);
+  assert.equal(second.game.resume(restored), true);
+  assert.equal(second.game.screen, 'playing');
+  assert.equal(second.game.phase, 'spar');
+  assert.equal(second.game.progress.xp, 500);
+  assert.equal(second.game.progress.cash, 1000);
+
+  second.game.clearSave(store);
+  assert.equal(second.game.hasSave, false);
+  assert.equal(loadSave(store), null);
+
+  const empty = makeGame();
+  empty.game.setSaveInfo(writeSave(store, { tutorialDone: false }));
+  assert.equal(empty.game.resume(empty.game.saveInfo), true);
+  assert.equal(empty.game.phase, 'tutorial', 'an unsaved tutorial resumes at the tutorial');
+});
+
+test('stamina gates sprint and dodge and regenerates after a delay', () => {
+  const { game, input } = makeGame();
+  input.held.add('forward');
+  input.held.add('sprint');
+  step(game, 60);
+  assert.ok(game.stamina.value < CONFIG.maxStamina, 'sprinting spends stamina');
+  const spent = game.stamina.value;
+  input.release('sprint');
+  step(game, frames(CONFIG.staminaDelay + 1));
+  assert.ok(game.stamina.value > spent, 'stamina regenerates');
+
+  game.stamina.reset(0);
+  input.held.add('right');
+  input.press('guard');
+  step(game);
+  assert.equal(game.dodgeTimer, 0, 'no stamina means no dodge');
+  assert.equal(game.blocking, true, 'the guard still comes up');
+});
+
 test('every HUD id main.js queries exists in the shell', async () => {
   const { readFile } = await import('node:fs/promises');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  const ids = [...main.matchAll(/querySelector\('#([\w-]+)'\)/g)].map(match => match[1]);
+  const ids = [...main.matchAll(/(?:\$|querySelector)\('#([\w-]+)'\)/g)].map(match => match[1]);
   assert.ok(ids.includes('score'), 'the score readout should be wired');
+  assert.ok(ids.includes('title'), 'the title screen should be wired');
+  assert.ok(ids.includes('radar-sensei'), 'the radar should be wired');
+  assert.ok(ids.includes('save-game'), 'the save button should be wired');
   for (const id of ids) assert.ok(html.includes(`id="${id}"`), `#${id} missing from index.html`);
 });

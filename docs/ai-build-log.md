@@ -169,3 +169,47 @@ STAFF/AIM/GUARD, PC sees LMB/RMB/Q, gamepad sees RT/LT/B), and the touch control
 safe-area insets. Tests: 43/43.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+## 2026-10-21 — opencode/deepseek-v4.1-flash-free (shell, saves, remapping and HUD pass)
+
+**Scope:** the title/menu shell and HUD slice requested by the owner, built without a device run.
+
+- **Screens:** `Game.screen` is now `title | menu | map | playing`; only `playing` simulates.
+  Title has Start, Resume (disabled until a valid save exists), Settings (opens the Controls page,
+  Back returns to the title) and a visible disabled “Multiplayer · in development” button.
+  Start/Esc opens the menu; Select/Tab/M opens the map. Closing a map opened from the menu returns
+  to the menu, not into the spar. The menu is the old `#settings` overlay rebuilt with STATUS, GEAR,
+  SKILLS, MAP, CONTROLS and SYSTEM pages.
+- **Save:** `src/save.js` writes `five-sleeves.save.v1` with tutorial completion, dev-granted
+  XP/cash and permissions. SYSTEM can save/delete; boot enables Resume when a sanitized save
+  exists. Settings, bindings and touch layout persist separately, so New Game does not erase controls.
+- **Dev codes:** `src/devcodes.js` provides `DEV-XP-500`, `DEV-CASH-1000` and
+  `DEV-GEAR-SLEEVE`. They only write placeholders/permissions and log to the event feed; no real
+  economy, weapons or inventory exists yet. The input is in SYSTEM and returns success/failure text.
+- **Remapping:** `src/bindings.js` holds keyboard/controller action tables. Controls page captures a
+  key or controller button; a displaced binding is swapped back so the other action keeps an input.
+  Input builds lookups from the tables instead of the old hard-coded `KEYS` map. Left/right sticks
+  remain fixed. Touch reconfiguration is currently size, opacity and left-handed layout; per-button
+  drag placement is not built.
+- **HUD:** top-left health/stamina/sleeve bars, radar beneath (forward-up, rim-clamped), event feed
+  beneath that; MENU top-centre with score below; Sensei health/phase top-right; fps/input labels.
+  `src/log.js` is a bounded feed, `src/radar.js` is pure projection, and `src/resources.js` powers
+  stamina. Stamina drains while sprinting and is spent by jump/dodge; low stamina blocks a dodge and
+  falls back to guard. The sleeve meter is display-only because no ability exists.
+- **Tuning:** stamina values are provisional in `config.js` (`maxStamina`, regen/delay, sprint/dodge/
+  jump costs, `maxSleeve`).
+- **Docs:** architecture, gameplay memory, technical memory and decision log updated; 30 FPS and the
+  device checklist remain unverified.
+
+**Verification:** `npm test` → 53/53 across two files; `node --check` clean for every `src/*.js`.
+New headless coverage: save sanitize/round-trip/delete, dev codes, binding sanitize/swap/persist,
+event-feed bounds, radar projection/clamping, resource regen, title/menu/map transitions, save/resume
+restoration and stamina gating. Browser/WebGL/phone layout, remap capture, touch sliders, save
+persistence across reload and the actual menu feel have **not** been verified. No browser run yet.
+
+**Follow-ups:** device pass; check title/menu layout at 360×640 and landscape; check RMB aim and
+touch look still work with the shell overlays; verify controller Start/Select mapping; decide whether
+Resume should also restore the current spar score; add per-button touch drag placement after a phone
+pass if size/opacity/handedness is insufficient.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

@@ -1,8 +1,10 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // Normalizes every device into named actions plus an analog move vector, so gameplay never
 // checks raw keys, button numbers or touch coordinates.
 import { CONFIG } from './config.js';
 import { deadzone, joystick } from './controls.js';
+import { sanitizeBindings } from './bindings.js';
 
 export class Input {
   constructor() {
@@ -18,9 +20,13 @@ export class Input {
     this.look = { x: 0, y: 0 };
     this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
     this.pointerActions = new Map();
+    this.bindings = sanitizeBindings();
+    this.keyLookup = {};
+    this.padLookup = {};
+    this.buildLookups();
 
     window.addEventListener('keydown', event => {
-      const action = KEYS[event.code];
+      const action = this.keyLookup[event.code];
       if (action) {
         event.preventDefault();
         this.device = 'keyboard';
@@ -28,7 +34,7 @@ export class Input {
       }
     });
     window.addEventListener('keyup', event => {
-      const action = KEYS[event.code];
+      const action = this.keyLookup[event.code];
       if (action) this.up(action);
     });
 
@@ -141,6 +147,22 @@ export class Input {
     }
   }
 
+  setBindings(next) {
+    this.bindings = sanitizeBindings(next);
+    this.buildLookups();
+  }
+
+  buildLookups() {
+    this.keyLookup = {};
+    this.padLookup = {};
+    for (const [action, codes] of Object.entries(this.bindings.keyboard)) {
+      for (const code of codes) this.keyLookup[code] = action;
+    }
+    for (const [action, indexes] of Object.entries(this.bindings.gamepad)) {
+      for (const index of indexes) this.padLookup[index] = action;
+    }
+  }
+
   down(action) {
     if (!this.held.has(action)) this.pressed.add(action);
     this.held.add(action);
@@ -171,15 +193,12 @@ export class Input {
     if (axisX < 0) current.add('left');
     if (axisX > 0) current.add('right');
 
-    // Standard Gamepad API layout: south/east/west face buttons, triggers, stick clicks.
-    if (buttons[0]?.pressed) current.add('jump');
-    if (buttons[1]?.pressed) current.add('guard');
-    if (buttons[2]?.pressed) current.add('interact');
-    if (buttons[6]?.pressed) current.add('aim');
-    if (buttons[7]?.pressed) current.add('attack');
-    if (buttons[10]?.pressed) current.add('sprint');
-    if (buttons[11]?.pressed) current.add('crouch');
-    if (buttons[9]?.pressed) current.add('confirm');
+    // Button indices come from the remappable bindings; sticks stay fixed.
+    for (let index = 0; index < buttons.length; index++) {
+      if (!buttons[index]?.pressed) continue;
+      const action = this.padLookup[index];
+      if (action) current.add(action);
+    }
 
     const lookX = deadzone(axes[2] || 0, .22);
     const lookY = deadzone(axes[3] || 0, .22);
@@ -241,15 +260,15 @@ export class Input {
       return 'GET UP: Enter / Space';
     }
     if (this.device === 'touch') {
-      return 'Left stick move · drag right to look · AIM then FIRE · tap GUARD to block, direction dodges';
+      return 'Left stick move · drag right to look · AIM then FIRE · MENU top centre';
     }
     if (this.device === 'gamepad') {
       const ps = this.padType().includes('PLAYSTATION');
       return ps
-        ? 'Left stick move · right stick look · L2 aim · R2 staff · Cross jump · Circle guard · L3 run · R3 crouch'
-        : 'Left stick move · right stick look · LT aim · RT staff · A jump · B guard · L3 run · R3 crouch';
+        ? 'Left stick move · right stick look · L2 aim · R2 staff · Circle guard · Start menu · Select map'
+        : 'Left stick move · right stick look · LT aim · RT staff · B guard · Start menu · Select map';
     }
-    return 'WASD move · LMB staff · RMB aim · Space jump · Shift sprint · Ctrl crouch · Q guard · F interact · Enter confirm';
+    return 'WASD move · LMB staff · RMB aim · Space jump · Shift sprint · Ctrl crouch · Q guard · F interact · Tab map · Esc menu';
   }
 
   isDown(action) { return this.held.has(action); }
@@ -260,13 +279,3 @@ export class Input {
   }
   endFrame() { this.pressed.clear(); }
 }
-
-export const KEYS = {
-  KeyW: 'forward', ArrowUp: 'forward', KeyS: 'back', ArrowDown: 'back',
-  KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
-  Space: 'jump', KeyJ: 'attack', Enter: 'confirm', KeyF: 'interact',
-  KeyQ: 'guard', KeyK: 'guard',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint',
-  ControlLeft: 'crouch', ControlRight: 'crouch',
-  Escape: 'pause'
-};

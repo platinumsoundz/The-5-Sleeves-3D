@@ -1,7 +1,178 @@
 <!doctype html>
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 -->
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) -->
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#182b25"><title>The 5 Sleeves — Training Ground</title><link rel="stylesheet" href="src/styles.css"></head><body>
-<main id="game"><div id="hud"><div class="brand">THE 5 SLEEVES <span>TRAINING GROUND</span></div><div class="status"><div><b>YOU</b><div class="bar"><i id="player-health"></i></div></div><div id="phase">TUTORIAL</div><div><b>SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div></div><div id="score">○○○ — ○○○</div><div id="warning" role="status" aria-label="Sensei is winding up" hidden>!</div><div id="device" role="status">INPUT: DETECTING</div><div id="fps" aria-hidden="true">— FPS</div><div id="prompt"></div><button id="skip" type="button">SKIP TUTORIAL</button><button id="restart" type="button" hidden>RESTART PRACTICE</button><button id="pause" data-action="pause" type="button" aria-label="Pause and settings">MENU</button><div id="message" role="status"></div><div id="result" hidden></div></div><div id="touch-controls" aria-label="Touch controls"><div id="stick-zone" aria-label="Movement joystick"><div id="stick-base"><div id="stick-knob"></div></div></div><div class="action-pad"><button data-action="aim" class="aim">AIM</button><button data-action="attack" class="staff">STAFF</button><button data-action="jump" class="jump">JUMP</button><button data-action="guard" class="guard">GUARD</button><button data-action="crouch" class="crouch">CROUCH</button><button data-action="sprint" class="sprint">RUN</button><button data-action="interact" class="interact">USE</button><button data-action="confirm" class="confirm">A / UP</button></div><button id="fire" data-action="attack" hidden>FIRE</button></div><div id="reticle" aria-hidden="true" hidden></div><div id="settings" role="dialog" aria-label="Paused and settings" hidden><h2>PAUSED</h2><label for="sensitivity">Look sensitivity</label><input id="sensitivity" type="range" min="0.4" max="2" step="0.05" value="1"><label class="check" for="invert"><input id="invert" type="checkbox"> Invert vertical look</label><label for="quality">Graphics</label><select id="quality"><option value="performance">Performance</option><option value="balanced">Balanced</option><option value="sharp">Sharp</option></select><button id="resume" data-action="pause" type="button">RESUME</button><p class="hint">Esc or MENU also toggles pause.</p></div><div id="loading">Preparing training ground…</div></main><script type="module" src="src/main.js"></script><script>
+<main id="game">
+  <div id="hud">
+    <section id="vitals" aria-label="Vitals">
+      <div class="vital"><b>HEALTH</b><div class="bar hp"><i id="player-health"></i></div></div>
+      <div class="vital"><b>STAMINA</b><div class="bar stamina"><i id="player-stamina"></i></div></div>
+      <div class="vital"><b>SLEEVE</b><div class="bar sleeve"><i id="sleeve-charge"></i></div></div>
+    </section>
+    <div id="radar" aria-label="Radar">
+      <div class="radar-ring"></div><div class="radar-cross"></div>
+      <i id="radar-player" class="radar-dot player"></i>
+      <i id="radar-sensei" class="radar-dot sensei"></i>
+    </div>
+    <div id="feed" role="log" aria-live="polite" aria-label="Event feed">
+      <div class="feed-line" hidden></div><div class="feed-line" hidden></div><div class="feed-line" hidden></div>
+      <div class="feed-line" hidden></div><div class="feed-line" hidden></div><div class="feed-line" hidden></div>
+    </div>
+    <button id="pause" data-action="menu" type="button" aria-label="Open menu">☰ MENU</button>
+    <div id="score">○○○ — ○○○</div>
+    <div class="status"><div><b>SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
+    <div id="device" role="status">INPUT: DETECTING</div>
+    <div id="fps" aria-hidden="true">— FPS</div>
+    <div id="warning" role="status" aria-label="Sensei is winding up" hidden>!</div>
+    <div id="prompt"></div>
+    <div id="message" role="status"></div>
+    <button id="skip" type="button">SKIP TUTORIAL</button>
+    <button id="restart" type="button" hidden>RESTART PRACTICE</button>
+    <div id="result" hidden></div>
+  </div>
+
+  <div id="touch-controls" aria-label="Touch controls">
+    <div id="stick-zone" aria-label="Movement joystick"><div id="stick-base"><div id="stick-knob"></div></div></div>
+    <div class="action-pad">
+      <button data-action="aim" class="aim">AIM</button>
+      <button data-action="attack" class="staff">STAFF</button>
+      <button data-action="jump" class="jump">JUMP</button>
+      <button data-action="guard" class="guard">GUARD</button>
+      <button data-action="crouch" class="crouch">CROUCH</button>
+      <button data-action="sprint" class="sprint">RUN</button>
+      <button data-action="interact" class="interact">USE</button>
+      <button data-action="confirm" class="confirm">A / UP</button>
+    </div>
+    <button id="fire" data-action="attack" hidden>FIRE</button>
+  </div>
+  <div id="reticle" aria-hidden="true" hidden></div>
+
+  <div id="title" role="dialog" aria-label="Title screen" hidden>
+    <div class="title-card">
+      <p class="eyebrow">A TRAINING GROUND PROTOTYPE</p>
+      <h1>THE <span>5</span> SLEEVES</h1>
+      <p class="tagline">One sleeve. One teacher. No lethal blows.</p>
+      <div class="title-actions">
+        <button id="start" type="button">START TRAINING</button>
+        <button id="resume" type="button" disabled>RESUME</button>
+        <button id="title-settings" class="ghost" type="button">SETTINGS</button>
+        <button id="multiplayer" type="button" disabled>MULTIPLAYER · IN DEVELOPMENT</button>
+      </div>
+      <p class="version">Nonlethal staff spar · first to 3 knockdowns</p>
+    </div>
+  </div>
+
+  <div id="settings" role="dialog" aria-label="Main menu" hidden>
+    <div class="menu-frame">
+      <header class="menu-head">
+        <div><p class="eyebrow">TRAINING GROUND</p><h2>MENU</h2></div>
+        <button id="menu-resume" data-action="menu" type="button">RESUME</button>
+      </header>
+      <nav id="menu-tabs" aria-label="Menu pages">
+        <button type="button" data-tab="status" class="active">STATUS</button>
+        <button type="button" data-tab="gear">GEAR</button>
+        <button type="button" data-tab="skills">SKILLS</button>
+        <button type="button" data-tab="map">MAP</button>
+        <button type="button" data-tab="controls">CONTROLS</button>
+        <button type="button" data-tab="system">SYSTEM</button>
+      </nav>
+      <div class="menu-body">
+        <section data-page="status">
+          <h3>CHARACTER</h3>
+          <p class="muted">The Sleeve is a left-arm training tool in this prototype. No Cipher powers are active.</p>
+          <dl class="stat-grid">
+            <div><dt>XP (dev)</dt><dd id="stat-xp">0</dd></div>
+            <div><dt>Cash (dev)</dt><dd id="stat-cash">0</dd></div>
+            <div><dt>Tutorial</dt><dd id="stat-tutorial">In progress</dd></div>
+            <div><dt>Knockdowns</dt><dd id="stat-score">0 – 0</dd></div>
+            <div class="wide"><dt>Permissions</dt><dd id="stat-perms">None</dd></div>
+          </dl>
+          <h3>SPAR RECORD</h3>
+          <p class="muted">Sensei is the only opponent. Rounds end on knockdowns, never on injury.</p>
+        </section>
+
+        <section data-page="gear" hidden>
+          <h3>EQUIPPED</h3>
+          <div class="gear-slot"><span>LEFT SLEEVE</span><b>Standard training sleeve</b><em>Training issue</em></div>
+          <div class="gear-slot"><span>STAFF</span><b>Padded sparring staff</b><em>Nonlethal</em></div>
+          <p class="muted">Inventory and equipment slots are reserved for the next content drop. Nothing here changes combat yet.</p>
+        </section>
+
+        <section data-page="skills" hidden>
+          <h3>SKILL TREE</h3>
+          <p class="muted">No skill points are awarded in this build, so every branch is dormant. Abilities will not be invented before the canon review.</p>
+          <div class="skill-branches">
+            <div class="skill-branch"><b>STAFF</b><span>Foundation</span><i>locked</i></div>
+            <div class="skill-branch"><b>BODY</b><span>Footwork</span><i>locked</i></div>
+            <div class="skill-branch"><b>SLEEVE</b><span>Unwritten</span><i>locked</i></div>
+          </div>
+        </section>
+
+        <section data-page="map" hidden>
+          <h3>TRAINING GROUND</h3>
+          <div id="tabmap" class="map-square" aria-label="Training ground map">
+            <div class="map-ring"></div>
+            <i class="mapdot player"></i><i class="mapdot sensei"></i>
+          </div>
+          <p class="muted">North-up. Gold is you, red is Sensei. Select / Tab opens the full map at any time.</p>
+          <button id="open-map" type="button">OPEN FULL MAP</button>
+        </section>
+
+        <section data-page="controls" hidden>
+          <h3>LOOK &amp; GRAPHICS</h3>
+          <label for="sensitivity">Look sensitivity</label>
+          <input id="sensitivity" type="range" min="0.4" max="2" step="0.05" value="1">
+          <label class="check" for="invert"><input id="invert" type="checkbox"> Invert vertical look</label>
+          <label for="quality">Graphics</label>
+          <select id="quality"><option value="performance">Performance</option><option value="balanced">Balanced</option><option value="sharp">Sharp</option></select>
+          <h3>KEYBOARD</h3>
+          <p class="muted">Click a binding, then press a key. Mouse buttons are fixed.</p>
+          <div id="keyboard-binds" class="bind-list"></div>
+          <h3>CONTROLLER</h3>
+          <p class="muted">Click a binding, then press a controller button. Sticks are fixed.</p>
+          <div id="gamepad-binds" class="bind-list"></div>
+          <h3>TOUCH LAYOUT</h3>
+          <label for="touch-scale">Button size <output id="touch-scale-value">100%</output></label>
+          <input id="touch-scale" type="range" min="0.8" max="1.3" step="0.05" value="1">
+          <label for="touch-opacity">Opacity <output id="touch-opacity-value">100%</output></label>
+          <input id="touch-opacity" type="range" min="0.4" max="1" step="0.05" value="1">
+          <label class="check" for="touch-left"><input id="touch-left" type="checkbox"> Left-handed layout (stick right, buttons left)</label>
+        </section>
+
+        <section data-page="system" hidden>
+          <h3>SAVE</h3>
+          <div class="button-row">
+            <button id="save-game" type="button">SAVE GAME</button>
+            <button id="delete-save" class="ghost" type="button">DELETE SAVE</button>
+          </div>
+          <p id="save-status" class="muted"></p>
+          <h3>DEVELOPER CODES</h3>
+          <p class="muted">Codes granted here are stored in the save slot. XP, cash, and gear are still placeholders.</p>
+          <div class="code-row"><input id="devcode" type="text" placeholder="DEV-…" autocomplete="off" spellcheck="false"><button id="devapply" type="button">APPLY</button></div>
+          <p id="devresult" role="status"></p>
+          <h3>MULTIPLAYER</h3>
+          <p class="muted">In development — not available in this build. One opponent only.</p>
+          <p class="version">Prototype v0.1 · nonlethal spar · staff only</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="map-screen" role="dialog" aria-label="Map" hidden>
+    <header class="menu-head"><div><p class="eyebrow">TRAINING GROUND</p><h2>MAP</h2></div><button id="map-close" type="button">CLOSE</button></header>
+    <div id="bigmap" class="map-square">
+      <div class="map-ring"></div>
+      <span class="map-label north">GATE</span>
+      <span class="map-label south">DRILL RING</span>
+      <i class="mapdot player"></i><i class="mapdot sensei"></i>
+    </div>
+    <p class="muted">Gold is you, red is Sensei. Select / Tab or CLOSE returns to the spar.</p>
+  </div>
+
+  <div id="loading">Preparing training ground…</div>
+</main>
+<script type="module" src="src/main.js"></script>
+<script>
 window.addEventListener('error', function (event) {
   if (window.__trainingReady) return;
   if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {

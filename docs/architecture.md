@@ -1,10 +1,12 @@
 # Architecture and safe modification
 
-`main.js` wires the browser loop. `input.js` normalizes keyboard, standard gamepad and touch into
-named actions plus an analog move vector and right-stick look; nothing downstream reads raw device
-codes or touch coordinates. Pure deadzone/joystick math lives in `controls.js` so it can be tested
-without a browser. `world.js` owns the Three.js scene, procedural fighters, arena, yaw/pitch orbit
-camera, aim zoom and viewport. `game.js` orchestrates tutorial, movement, strikes, rounds and match
+`main.js` wires the browser loop and the title/menu chrome. `input.js` normalizes keyboard,
+standard gamepad and touch into named actions plus an analog move vector and right-stick look;
+nothing downstream reads raw device codes or touch coordinates. Bindings are sanitized in
+`bindings.js`, and remapping swaps displaced keys/buttons so no action silently loses its input.
+Pure deadzone/joystick math lives in `controls.js` so it can be tested without a browser.
+`world.js` owns the Three.js scene, procedural fighters, arena, yaw/pitch orbit camera, aim zoom
+and viewport. `game.js` orchestrates screens, tutorial, movement, strikes, rounds, saves and match
 end, and is the only class the browser entry point touches.
 
 Rules are split so they cannot drift apart and can be tested without a renderer:
@@ -16,9 +18,15 @@ Rules are split so they cannot drift apart and can be tested without a renderer:
 | `ai.js` | Sensei decisions: approach, wind-up, strike, recover |
 | `match.js` | knockdown points, winner, first to `CONFIG.pointsToWin` |
 | `events.js` | synchronous pub/sub between gameplay and presentation |
-| `hud.js` | every DOM write; receives elements, never queries them |
+| `hud.js` | gameplay HUD DOM writes; receives elements, never queries them |
 | `controls.js` | pure deadzone, joystick and clamp math |
-| `settings.js` | sensitivity/invert/quality defaults, clamping and storage I/O |
+| `settings.js` | look/quality/touch-layout defaults, clamping and storage I/O |
+| `bindings.js` | keyboard/controller bindings, sanitize/swap/persist |
+| `save.js` | versioned local save slot, sanitize/load/write/delete |
+| `devcodes.js` | developer code registry and pure save transforms |
+| `radar.js` | forward-up world-to-radar projection |
+| `resources.js` | clamped regenerating stamina/sleeve resource |
+| `log.js` | bounded HUD event feed |
 | `config.js` | tuning values only |
 
 `game.js` passes stub world/input/ui objects in tests, so no module below it may touch
@@ -43,15 +51,26 @@ Holding aim also reveals `#fire` under the left thumb. `Hud.sync` is what toggle
 (MENU pauses, STAFF hides while aiming), pointer releases are also caught on `window` so an action
 cannot stay stuck down.
 
-Pause lives in `game.js` (`paused` + the `pause` action) and freezes the simulation while painting
-the same HUD. `settings.js` owns validation and local-storage I/O; `main.js` loads settings, passes
-them to `world.setSettings`/`setQuality`, and reflects the range/checkbox/select controls. All
-writes to the HUD remain in `hud.js`.
+Screens live in `game.js` as `screen: title | menu | map | playing`. Only `playing` simulates;
+the others stay paused while still rendering. `paused` mirrors `screen !== 'playing'` for older
+callers. The menu overlay is the old `#settings` element, now a tabbed shell; the map is its own
+overlay. `Hud.sync` decides which gameplay HUD/touch elements are visible. Menu-chrome mounting,
+binding-row construction, save/dev buttons and live touch CSS variables are handled by `main.js`
+because they are browser-only shell concerns. Gameplay HUD writes remain in `hud.js`.
+
+`settings.js` owns validation and storage I/O for look/quality/touch; `main.js` loads settings,
+passes them to `world.setSettings`/`setQuality`, and reflects the controls. `save.js` persists
+tutorial completion plus dev-granted XP/cash/permissions under a separate key; `bindings.js`
+persists remaps under another. Deleting the save never deletes controls or settings.
 
 One opponent is supported. Sensei is passive during the tutorial. Both fighters can be knocked
 down; a downed player must confirm before the next round starts, while Sensei recovers on his own.
-XP/money, saves and Cipher powers remain deferred, with extension points preserved. Cipher
-abilities must sit behind a future ability interface, and Ajaye's Sleeve stays left-arm-only if
-shown. Browser execution has not been verified.
+XP/money progression, inventory/skill content and Cipher powers remain deferred, with extension
+points preserved. Dev codes may write placeholder XP/cash/permissions, but nothing consumes them
+in combat. Cipher abilities must sit behind a future ability interface, and Ajaye's Sleeve stays
+left-arm-only if shown. The sleeve meter is display-only for now. Browser execution has not been
+verified.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)

@@ -1,29 +1,52 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
-// Entry point: scene creation and browser input live in separate, small modules.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
 import { Input } from './input.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { BINDING_ACTIONS, ACTION_LABELS, loadBindings, saveBindings, rebind } from './bindings.js';
+import { loadSave } from './save.js';
 
-const world = createWorld(document.querySelector('#game'));
+const $ = query => document.querySelector(query);
+const $$ = query => [...document.querySelectorAll(query)];
+
+const world = createWorld($('#game'));
 const input = new Input();
 const game = new Game(world, input, {
-  prompt: document.querySelector('#prompt'), message: document.querySelector('#message'),
-  phase: document.querySelector('#phase'), score: document.querySelector('#score'), playerHealth: document.querySelector('#player-health'),
-  senseiHealth: document.querySelector('#sensei-health'), result: document.querySelector('#result'),
-  skip: document.querySelector('#skip'), restart: document.querySelector('#restart'), device: document.querySelector('#device'),
-  warning: document.querySelector('#warning'), touchControls: document.querySelector('#touch-controls'),
-  fire: document.querySelector('#fire'), reticle: document.querySelector('#reticle'),
-  pause: document.querySelector('#pause'), settings: document.querySelector('#settings'),
-  loading: document.querySelector('#loading')
+  prompt: $('#prompt'), message: $('#message'),
+  phase: $('#phase'), score: $('#score'), playerHealth: $('#player-health'),
+  playerStamina: $('#player-stamina'), sleeveCharge: $('#sleeve-charge'),
+  senseiHealth: $('#sensei-health'), result: $('#result'),
+  skip: $('#skip'), restart: $('#restart'), device: $('#device'),
+  warning: $('#warning'), touchControls: $('#touch-controls'),
+  fire: $('#fire'), reticle: $('#reticle'),
+  pause: $('#pause'), settings: $('#settings'), loading: $('#loading'),
+  hud: $('#hud'), title: $('#title'), resume: $('#resume'),
+  feedLines: $$('#feed .feed-line'), radarSensei: $('#radar-sensei'),
+  mapScreen: $('#map-screen'), mapPlayers: $$('.mapdot.player'), mapSenseis: $$('.mapdot.sensei'),
+  menuPages: {
+    status: $('[data-page="status"]'), gear: $('[data-page="gear"]'),
+    skills: $('[data-page="skills"]'), map: $('[data-page="map"]'),
+    controls: $('[data-page="controls"]'), system: $('[data-page="system"]')
+  },
+  menuTabs: $$('#menu-tabs [data-tab]'), menuResume: $('#menu-resume'),
+  statXp: $('#stat-xp'), statCash: $('#stat-cash'), statTutorial: $('#stat-tutorial'),
+  statPerms: $('#stat-perms'), statScore: $('#stat-score'), saveStatus: $('#save-status')
 });
 window.__trainingReady = true;
 
-// Settings: stored locally, applied to the camera and renderer, reflected in the pause panel.
+// Settings: stored locally, applied to the camera, renderer and touch layout.
 let settings = loadSettings(window.localStorage);
-const sensitivity = document.querySelector('#sensitivity');
-const invert = document.querySelector('#invert');
-const quality = document.querySelector('#quality');
+const sensitivity = $('#sensitivity');
+const invert = $('#invert');
+const quality = $('#quality');
+const touchScale = $('#touch-scale');
+const touchOpacity = $('#touch-opacity');
+const touchLeft = $('#touch-left');
+const touchScaleValue = $('#touch-scale-value');
+const touchOpacityValue = $('#touch-opacity-value');
+const touchControls = $('#touch-controls');
 
 function applySettings() {
   world.setSettings(settings);
@@ -31,6 +54,16 @@ function applySettings() {
   if (sensitivity) sensitivity.value = settings.sensitivity;
   if (invert) invert.checked = settings.invertY;
   if (quality) quality.value = settings.quality;
+  if (touchScale) touchScale.value = settings.touchScale;
+  if (touchOpacity) touchOpacity.value = settings.touchOpacity;
+  if (touchLeft) touchLeft.checked = settings.leftHanded;
+  if (touchScaleValue) touchScaleValue.textContent = `${Math.round(settings.touchScale * 100)}%`;
+  if (touchOpacityValue) touchOpacityValue.textContent = `${Math.round(settings.touchOpacity * 100)}%`;
+  if (touchControls) {
+    touchControls.style.setProperty('--pad-scale', settings.touchScale);
+    touchControls.style.setProperty('--pad-opacity', settings.touchOpacity);
+    touchControls.classList.toggle('lefty', settings.leftHanded);
+  }
 }
 
 function persist(next) {
@@ -41,14 +74,136 @@ function persist(next) {
 sensitivity?.addEventListener('input', () => persist({ ...settings, sensitivity: Number(sensitivity.value) }));
 invert?.addEventListener('change', () => persist({ ...settings, invertY: invert.checked }));
 quality?.addEventListener('change', () => persist({ ...settings, quality: quality.value }));
+touchScale?.addEventListener('input', () => persist({ ...settings, touchScale: Number(touchScale.value) }));
+touchOpacity?.addEventListener('input', () => persist({ ...settings, touchOpacity: Number(touchOpacity.value) }));
+touchLeft?.addEventListener('change', () => persist({ ...settings, leftHanded: touchLeft.checked }));
 applySettings();
+
+// Bindings and the title/menu shell.
+let bindings = loadBindings(window.localStorage);
+input.setBindings(bindings);
+let savedGame = loadSave(window.localStorage);
+game.setSaveInfo(savedGame);
+game.showTitle();
+
+$('#start')?.addEventListener('click', () => game.startNew());
+$('#resume')?.addEventListener('click', () => {
+  if (savedGame) game.resume(savedGame);
+});
+$('#title-settings')?.addEventListener('click', () => game.openMenu('controls'));
+$('#menu-tabs')?.addEventListener('click', event => {
+  const tab = event.target.closest('[data-tab]');
+  if (tab) game.setMenuTab(tab.dataset.tab);
+});
+$('#open-map')?.addEventListener('click', () => game.openMap());
+$('#map-close')?.addEventListener('click', () => game.closeMap());
+$('#save-game')?.addEventListener('click', () => {
+  savedGame = game.saveGame(window.localStorage);
+  setDevResult('Saved.');
+});
+$('#delete-save')?.addEventListener('click', () => {
+  game.clearSave(window.localStorage);
+  savedGame = null;
+  setDevResult('Save deleted.');
+});
+
+function setDevResult(text) {
+  const node = $('#devresult');
+  if (node) node.textContent = text;
+}
+
+function applyDevCode() {
+  const field = $('#devcode');
+  if (!field) return;
+  const result = game.redeemDev(field.value);
+  setDevResult(result.message);
+  if (result.ok) field.value = '';
+  savedGame = game.saveInfo;
+}
+$('#devapply')?.addEventListener('click', applyDevCode);
+$('#devcode')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); applyDevCode(); }
+});
+
+const PAD_LABELS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'VIEW', 'START', 'L3', 'R3', 'D↑', 'D↓', 'D←', 'D→', 'GUIDE'];
+
+function formatBinding(device, action) {
+  const values = bindings[device]?.[action] || [];
+  if (device === 'keyboard') {
+    if (!values.length && action === 'aim') return 'Mouse 2';
+    return values.length ? values.map(code => code.replace(/^Key|^Digit/, '')).join(' / ') : 'Unbound';
+  }
+  return values.length ? values.map(index => PAD_LABELS[index] || `B${index}`).join(' / ') : 'Unbound';
+}
+
+let capture = null;
+let padArmedAt = 0;
+
+function buildBindingRows() {
+  for (const device of ['keyboard', 'gamepad']) {
+    const host = $(device === 'keyboard' ? '#keyboard-binds' : '#gamepad-binds');
+    if (!host) continue;
+    host.replaceChildren();
+    for (const action of BINDING_ACTIONS) {
+      const row = document.createElement('div');
+      row.className = 'bind-row';
+      const label = document.createElement('span');
+      label.textContent = ACTION_LABELS[action] || action;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bind-button';
+      button.textContent = formatBinding(device, action);
+      button.addEventListener('click', () => beginCapture(device, action, button));
+      row.append(label, button);
+      host.append(row);
+    }
+  }
+}
+
+function beginCapture(device, action, button) {
+  if (capture) capture.button.textContent = formatBinding(capture.device, capture.action);
+  capture = { device, action, button };
+  button.textContent = device === 'keyboard' ? 'Press a key…' : 'Press a button…';
+  padArmedAt = performance.now() + 150;
+}
+
+function finishCapture(value) {
+  if (!capture) return;
+  bindings = rebind(bindings, capture.device, capture.action, value);
+  saveBindings(window.localStorage, bindings);
+  input.setBindings(bindings);
+  input.reset();
+  capture = null;
+  buildBindingRows();
+}
+
+window.addEventListener('keydown', event => {
+  if (!capture || capture.device !== 'keyboard') return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  finishCapture(event.code);
+}, true);
+
+function pollPadRebind() {
+  if (!capture || capture.device !== 'gamepad') return;
+  if (performance.now() < padArmedAt) return;
+  const pads = navigator.getGamepads?.() || [];
+  for (const pad of pads) {
+    if (!pad) continue;
+    for (let index = 0; index < pad.buttons.length; index++) {
+      if (pad.buttons[index]?.pressed) { finishCapture(index); return; }
+    }
+  }
+}
+
+buildBindingRows();
 
 // Presentation subscribes to gameplay events instead of reaching into rules modules.
 game.events.on('hit', ({ target }) => world.pulse(target, 0xff6b4a));
 game.events.on('parry', () => world.pulse('sensei', 0x7fe6ff));
 game.events.on('block', () => world.pulse('player', 0x7fe6ff));
 
-const fpsLabel = document.querySelector('#fps');
+const fpsLabel = $('#fps');
 let previous = performance.now();
 let sampleFrames = 0;
 let sampleTime = 0;
@@ -58,9 +213,10 @@ function frame(now) {
   previous = now;
   const dt = Math.min(elapsed, 0.05);
   if (!document.hidden) {
+    pollPadRebind();
     game.update(dt);
     const look = input.consumeLook();
-    if (look.x || look.y) world.look(look.x, look.y);
+    if ((look.x || look.y) && game.screen === 'playing') world.look(look.x, look.y);
     world.setFeedback({
       senseiWindingUp: game.ai.windingUp,
       playerBlocking: game.blocking,

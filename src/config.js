@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // Tunable prototype values. No progression or canon powers are implemented here.
 export const CONFIG = {
   // Movement
@@ -6,6 +7,9 @@ export const CONFIG = {
   dodgeTime: .42, dodgeSpeed: 7,
   // Player staff
   attackCooldown: .65, attackAnimTime: .28, range: 2.3, damage: 12,
+  // Vitals: stamina gates sprint/dodge/jump; sleeve charge is displayed but no ability uses it yet.
+  maxStamina: 100, staminaRegen: 20, staminaDelay: .7,
+  sprintCost: 16, dodgeCost: 18, jumpCost: 8, maxSleeve: 100,
   // Shared nonlethal knockdown
   knockdown: 2.5,
   // Sensei sparring brain
