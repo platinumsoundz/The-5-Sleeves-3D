@@ -43,6 +43,7 @@ export class Game {
     this.phase = 'tutorial';
     this.step = 0;
     this.locked = false;
+    this.blocking = false;
     this.roundTimer = 0;
     this.resultText = '';
     this.skipVisible = true;
@@ -82,6 +83,9 @@ export class Game {
 
     this.locked = this.input.isDown('aim');
     this.world.setLocked(this.locked);
+    this.blocking = this.phase !== 'result' && !this.player.isDown
+      && this.input.isDown('guard') && !this.playerCombat.invulnerable
+      && !this.playerCombat.guardBroken;
 
     this.tutorial(dx, dz);
 
@@ -111,9 +115,9 @@ export class Game {
     }
     if (this.step === 2 && this.input.consume('aim')) {
       this.step = 3;
-      this.show('Step 4/4: dodge with K / B (or jump with Space / A).');
+      this.show('Step 4/4: guard with K / B. Add a direction to dodge; time it to parry.');
     }
-    if (this.step === 3 && (this.input.isDown('dodge') || this.input.isDown('jump'))) {
+    if (this.step === 3 && (this.input.isDown('guard') || this.input.isDown('jump'))) {
       this.step = 4;
       this.show('Tutorial complete. Begin free spar, or skip at any time.');
     }
@@ -125,7 +129,8 @@ export class Game {
   movePlayer(dt, dx, dz) {
     const player = this.world.player;
     const sensei = this.world.sensei;
-    const speed = this.input.isDown('sprint') ? CONFIG.sprint : CONFIG.move;
+    const speed = (this.input.isDown('sprint') ? CONFIG.sprint : CONFIG.move)
+      * (this.blocking ? CONFIG.guardSpeed : 1);
 
     if (this.playerCombat.dodgeTimer > 0) {
       player.position.x += this.playerCombat.dodgeDir.x * CONFIG.dodgeSpeed * dt;
@@ -154,18 +159,33 @@ export class Game {
       if (player.position.y < 0) { player.position.y = 0; player.userData.vy = 0; }
     }
 
-    if (this.input.consume('dodge') && !this.playerCombat.invulnerable) {
-      this.playerCombat.beginDodge(dx, dz, player.rotation.y);
-      this.events.emit('dodge');
+    if (this.input.consume('guard')) {
+      if (dx || dz) {
+        this.playerCombat.beginDodge(dx, dz, player.rotation.y);
+        this.playerCombat.clearBlockPressure();
+        this.events.emit('dodge');
+      } else {
+        this.playerCombat.beginGuard();
+        this.events.emit('guard');
+      }
     }
 
-    if (this.input.consume('attack') && this.playerCombat.canAttack) {
+    if (this.input.consume('attack') && this.playerCombat.canAttack && !this.blocking) {
       this.playerCombat.beginAttack();
       this.events.emit('swing');
-      const inRange = player.position.distanceTo(sensei.position) < CONFIG.range;
-      if (this.phase === 'spar' && !this.sensei.isDown && inRange) {
-        if (this.sensei.hit(CONFIG.damage) === KNOCKDOWN) this.onKnockdown('player');
-        else this.events.emit('hit', { target: 'sensei' });
+      const distance = player.position.distanceTo(sensei.position);
+      if (this.phase === 'spar' && !this.sensei.isDown) {
+        if (distance < CONFIG.range) {
+          if (this.sensei.hit(CONFIG.damage) === KNOCKDOWN) {
+            this.onKnockdown('player');
+          } else {
+            this.knockback(sensei, player, CONFIG.knockback);
+            this.events.emit('hit', { target: 'sensei' });
+          }
+        } else {
+          this.ai.noticeWhiff(distance);
+          this.events.emit('whiff', { distance });
+        }
       }
     }
   }
@@ -204,7 +224,6 @@ export class Game {
       senseiDown: this.sensei.isDown,
       playerDown: this.player.isDown,
       playerInvulnerable: this.playerCombat.invulnerable,
-      crouching: this.input.isDown('crouch'),
       distance
     });
 
@@ -215,9 +234,29 @@ export class Game {
     if (active && distance > 0.001) sensei.rotation.y = Math.atan2(vx, vz);
 
     if (intent.strike && !this.player.isDown) {
-      const result = this.player.hit(CONFIG.senseiDamage);
-      if (result === KNOCKDOWN) this.onKnockdown('sensei');
-      else if (result === HIT) this.events.emit('hit', { target: 'player' });
+      if (this.playerCombat.parryReady) {
+        this.playerCombat.consumeParry();
+        this.playerCombat.clearBlockPressure();
+        this.ai.stagger();
+        this.knockback(sensei, player, CONFIG.knockback * 2);
+        this.show('Parried. Sensei is open.');
+        this.events.emit('parry');
+        return;
+      }
+      const damage = this.blocking ? CONFIG.senseiDamage * CONFIG.blockDamageScale : CONFIG.senseiDamage;
+      const result = this.player.hit(damage);
+      this.knockback(player, sensei, CONFIG.knockback);
+      if (result === KNOCKDOWN) {
+        this.onKnockdown('sensei');
+      } else if (result === HIT) {
+        if (this.blocking && this.playerCombat.registerBlock()) {
+          this.events.emit('block', { target: 'player' });
+          this.events.emit('guard-break');
+          this.show('Guard broken — give ground and reset.');
+        } else {
+          this.events.emit(this.blocking ? 'block' : 'hit', { target: 'player' });
+        }
+      }
     }
   }
 
@@ -278,6 +317,14 @@ export class Game {
     fighter.position.y = 0;
   }
 
+  knockback(target, source, amount) {
+    const dx = target.position.x - source.position.x;
+    const dz = target.position.z - source.position.z;
+    const length = Math.hypot(dx, dz) || 1;
+    target.position.x = clamp(target.position.x + dx / length * amount);
+    target.position.z = clamp(target.position.z + dz / length * amount);
+  }
+
   poseFighters(dt) {
     const player = this.world.player;
     const sensei = this.world.sensei;
@@ -305,6 +352,8 @@ export class Game {
       senseiHp: this.sensei.hp,
       playerScore: this.match.player,
       senseiScore: this.match.sensei,
+      needed: this.match.needed,
+      warning: this.phase === 'spar' && this.ai.windingUp,
       message: this.message ?? '',
       prompt: this.phase === 'result'
         ? 'Spar complete — use RESTART PRACTICE to spar again.'

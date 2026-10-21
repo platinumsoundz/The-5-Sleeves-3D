@@ -38,7 +38,7 @@ function makeWorld() {
 function makeUi() {
   return {
     skip: element(), restart: element(), message: element(), phase: element(),
-    score: element(), playerHealth: element(), senseiHealth: element(), prompt: element(),
+    score: element(), warning: element(), playerHealth: element(), senseiHealth: element(), prompt: element(),
     device: element(), touchControls: element(), result: element(), loading: element()
   };
 }
@@ -81,6 +81,14 @@ function knockDownSensei(game, input) {
     step(game);
     step(game, frames(CONFIG.attackCooldown));
   }
+}
+
+function advanceToWindup(game, limit = 120) {
+  for (let i = 0; i < limit; i++) {
+    if (game.ai.windingUp) return true;
+    step(game);
+  }
+  return game.ai.windingUp;
 }
 
 // --- Events -------------------------------------------------------------------------------
@@ -137,6 +145,32 @@ test('attack cooldown blocks a second swing until it expires', () => {
   assert.equal(combat.canAttack, true);
 });
 
+test('blocked hits stack into a guard break, and pressure decays', () => {
+  const combat = new CombatState();
+  assert.equal(combat.registerBlock(), false);
+  assert.equal(combat.registerBlock(), false);
+  assert.equal(combat.registerBlock(), true);
+  assert.equal(combat.guardBroken, true);
+  combat.tick(CONFIG.guardBreakStun + 0.01);
+  assert.equal(combat.guardBroken, false);
+
+  const decay = new CombatState();
+  decay.registerBlock();
+  decay.registerBlock();
+  decay.tick(CONFIG.guardBreakWindow + 0.01);
+  assert.equal(decay.blockedHits, 0, 'old blocks should not count forever');
+});
+
+test('guard presses cannot re-arm the parry while locked', () => {
+  const combat = new CombatState();
+  assert.equal(combat.beginGuard(), true);
+  combat.tick(CONFIG.parryWindow + 0.01);
+  assert.equal(combat.parryReady, false);
+  assert.equal(combat.beginGuard(), false, 'mashing should not re-arm the parry');
+  combat.tick(CONFIG.parryWindow + CONFIG.parryRecover + 0.01);
+  assert.equal(combat.beginGuard(), true);
+});
+
 test('dodge grants invulnerability and normalizes its direction', () => {
   const combat = new CombatState();
   combat.beginDodge(1, 0, 0);
@@ -174,7 +208,7 @@ test('Sensei idles when inactive, approaches when far and telegraphs before stri
   assert.equal(ai.windingUp, true);
 });
 
-test('a completed wind-up strikes only when the target is open', () => withAccuracy(1, () => {
+test('a completed wind-up strikes only when the target is in reach', () => withAccuracy(1, () => {
   const early = new SenseiAI();
   early.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
   let struck = false;
@@ -183,16 +217,33 @@ test('a completed wind-up strikes only when the target is open', () => withAccur
   }
   assert.equal(struck, true);
 
-  const blocked = new SenseiAI();
-  blocked.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
-  let blockedHit = false;
+  const far = new SenseiAI();
+  far.update(DT, { active: true, distance: CONFIG.senseiReach - 0.1 });
+  let farStruck = false;
   for (let i = 0; i < frames(CONFIG.senseiWindup); i++) {
-    blockedHit = blockedHit || blocked.update(DT, {
-      active: true, distance: CONFIG.senseiReach - 0.1, crouching: true
-    }).strike;
+    farStruck = farStruck || far.update(DT, { active: true, distance: CONFIG.senseiReach + 2 }).strike;
   }
-  assert.equal(blockedHit, false);
+  assert.equal(farStruck, false);
 }));
+
+test('stagger interrupts Sensei and a noticed whiff arms a faster punish', () => {
+  const ai = new SenseiAI();
+  ai.stagger(1);
+  assert.equal(ai.staggered, true);
+  assert.equal(ai.update(DT, { active: true, distance: 1 }).strike, false);
+  for (let i = 0; i < frames(1); i++) ai.update(DT, { active: true, distance: 1 });
+  assert.equal(ai.staggered, false);
+
+  const punisher = new SenseiAI();
+  punisher.noticeWhiff(CONFIG.senseiReach + 0.5);
+  assert.equal(punisher.punishing, true);
+  assert.equal(punisher.update(DT, { active: true, distance: CONFIG.senseiReach + 0.5 }).approach, true);
+  assert.equal(punisher.update(DT, { active: true, distance: CONFIG.senseiReach - 0.05 }).state, 'windup');
+
+  const honest = new SenseiAI();
+  honest.noticeWhiff(CONFIG.senseiReach + CONFIG.whiffPunishReach + 1);
+  assert.equal(honest.punishing, false);
+});
 
 test('Sensei misses when accuracy is zero or the player dodges away', () => {
   withAccuracy(0, () => {
@@ -280,7 +331,7 @@ test('tutorial advances through move, attack, aim, dodge and confirm', () => {
   input.press('aim'); step(game);
   assert.equal(game.step, 3);
 
-  input.press('dodge'); step(game);
+  input.press('guard'); step(game);
   assert.equal(game.step, 4);
 
   input.press('confirm'); step(game);
@@ -307,6 +358,114 @@ test('out-of-range swings miss', () => {
   assert.equal(game.enemyHp, 100);
 });
 
+test('guard with no direction parries when timed just before the strike', () => withAccuracy(1, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  assert.ok(advanceToWindup(game), 'Sensei should wind up');
+
+  for (let i = 0; i < 60 && game.ai.windingUp && game.ai.timer > CONFIG.parryWindow * 0.5; i++) step(game);
+  let parried = false;
+  game.events.on('parry', () => { parried = true; });
+  input.press('guard');
+  step(game);
+  assert.ok(game.playerCombat.parryTimer > 0, 'the parry window should open');
+  assert.equal(game.blocking, true);
+
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(parried, true);
+  assert.equal(game.playerHp, 100, 'a parry negates the strike');
+  assert.equal(game.ai.state, 'stagger');
+}));
+
+test('holding guard past the parry window blocks for reduced damage', () => withAccuracy(1, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  input.press('guard');
+  step(game);
+  step(game, frames(CONFIG.parryWindow));
+  assert.equal(game.blocking, true);
+  assert.equal(game.playerCombat.parryTimer, 0, 'the parry window has closed');
+
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage * CONFIG.blockDamageScale);
+}));
+
+test('repeated blocks break the guard and briefly stop blocking', () => withAccuracy(1, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  input.press('guard');
+  let broken = false;
+  game.events.on('guard-break', () => { broken = true; });
+  for (let i = 0; i < frames(5) && !broken; i++) step(game);
+  assert.equal(broken, true, 'three blocked hits should break the guard');
+
+  step(game);
+  assert.equal(game.blocking, false, 'a broken guard cannot block');
+  step(game, frames(CONFIG.guardBreakStun));
+  assert.equal(game.blocking, true, 'holding guard re-establishes the block');
+}));
+
+test('guard with a direction dodges instead of blocking', () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  input.held.add('left');
+  input.press('guard');
+  step(game);
+  step(game);
+  input.release('left');
+  assert.ok(game.playerCombat.dodgeTimer > 0);
+  assert.equal(game.playerCombat.parryTimer, 0);
+  assert.equal(game.playerCombat.dodgeDir.x, -1);
+  assert.equal(game.playerCombat.dodgeDir.z, 0);
+  assert.equal(game.blocking, false, 'a dodge is not a block');
+});
+
+test('crouching is posture, not defense', () => withAccuracy(1, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  input.held.add('crouch');
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage);
+}));
+
+test('a whiffed swing invites a shortened punish wind-up', () => withAccuracy(0, () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, 0);
+  input.press('attack');
+  step(game);
+  assert.equal(game.enemyHp, 100, 'the swing should miss at 2.5 units');
+  assert.equal(game.ai.punishing, true);
+
+  let windupTimer = null;
+  let wasWinding = false;
+  for (let i = 0; i < frames(1); i++) {
+    step(game);
+    if (game.ai.windingUp && !wasWinding) windupTimer = game.ai.timer;
+    wasWinding = game.ai.windingUp;
+  }
+  assert.ok(windupTimer !== null, 'Sensei should wind up after the whiff');
+  assert.ok(windupTimer <= CONFIG.senseiPunishWindup + DT, `first punish wind-up was ${windupTimer}`);
+}));
+
+test('the HUD warns during the wind-up and clears after it', () => withAccuracy(1, () => {
+  const { game, world, ui } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -1);
+  step(game);
+  assert.equal(game.ai.windingUp, true);
+  assert.equal(ui.warning.hidden, false);
+
+  step(game, frames(CONFIG.senseiWindup));
+  assert.equal(game.ai.windingUp, false);
+  assert.equal(ui.warning.hidden, true);
+}));
+
 test('knockdown zeroes the health bar and scores a point', () => withAccuracy(0, () => {
   const { game, world, ui, input } = makeGame();
   game.finishTutorial();
@@ -317,7 +476,7 @@ test('knockdown zeroes the health bar and scores a point', () => withAccuracy(0,
   assert.ok(game.enemyDown > 0);
   assert.equal(game.match.player, 1);
   assert.equal(ui.senseiHealth.style.width, '0%');
-  assert.equal(ui.score.textContent, '1 — 0');
+  assert.equal(ui.score.textContent, '●○○ — ○○○');
 
   step(game, frames(CONFIG.knockdown) + 2);
   assert.equal(game.enemyDown, 0);
@@ -430,7 +589,7 @@ test('restart clears knockdown poses, score and stale input', () => withAccuracy
 
   assert.equal(game.phase, 'tutorial');
   assert.equal(game.match.player, 0);
-  assert.equal(ui.score.textContent, '0 — 0');
+  assert.equal(ui.score.textContent, '○○○ — ○○○');
   assert.equal(ui.result.hidden, true);
   assert.equal(world.sensei.rotation.z, 0);
   assert.equal(world.sensei.position.y, 0);
@@ -448,7 +607,7 @@ test('a long seeded spar stays in bounds and reaches a result', () => withAccura
   const { game, world, input } = makeGame();
   game.finishTutorial();
   const random = seeded(20261021);
-  const actions = ['forward', 'back', 'left', 'right', 'attack', 'dodge', 'jump', 'sprint', 'aim', 'crouch', 'confirm'];
+  const actions = ['forward', 'back', 'left', 'right', 'attack', 'guard', 'jump', 'sprint', 'aim', 'crouch', 'confirm'];
   let ended = false;
 
   for (let frame = 0; frame < 60 * 300 && !ended; frame++) {

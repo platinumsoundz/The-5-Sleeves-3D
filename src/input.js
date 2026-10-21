@@ -91,7 +91,7 @@ export class Input {
     if ((axes[0] || 0) > 0.25) current.add('right');
     // Standard Gamepad API layout: south/east/west face buttons, triggers, stick clicks.
     if (buttons[0]?.pressed) current.add('jump');
-    if (buttons[1]?.pressed) current.add('dodge');
+    if (buttons[1]?.pressed) current.add('guard');
     if (buttons[2]?.pressed) current.add('interact');
     if (buttons[6]?.pressed) current.add('aim');
     if (buttons[7]?.pressed) current.add('attack');
@@ -122,12 +122,13 @@ export class Input {
       if (this.device === 'gamepad') return `GET UP: ${this.padType().includes('PLAYSTATION') ? 'CROSS' : 'A'} / CONFIRM`;
       return 'GET UP: Enter';
     }
-    if (this.device === 'touch') return 'Drag to look · Staff · Aim · Jump · Dodge · Run · Crouch';
+    if (this.device === 'touch') return 'Drag to look · Staff · Guard (direction dodges, tap to block) · Jump · Run · Crouch';
     if (this.device === 'gamepad') {
       const ps = this.padType().includes('PLAYSTATION');
-      return ps ? 'Hold L2 lock · R2 staff · Cross jump · Circle dodge · L3 run · R3 crouch' : 'Hold LT lock · RT staff · A jump · B dodge · L3 run · R3 crouch';
+      return ps ? 'L2 lock · R2 staff · Cross jump · Circle guard · Circle+direction dodge · L3 run · R3 crouch'
+        : 'LT lock · RT staff · A jump · B guard · B+direction dodge · L3 run · R3 crouch';
     }
-    return 'WASD move · Mouse drag look · Right-click hold lock · Left-click / J staff · Space jump · K dodge · Shift run · Ctrl crouch';
+    return 'WASD move · J / left-click staff · Space jump · K guard (direction dodges, tap blocks, time it to parry) · E lock · Shift run · Ctrl crouch';
   }
 
   isDown(action) { return this.held.has(action); }
@@ -144,5 +145,5 @@ const KEYS = {
   KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
   Space: 'jump', KeyJ: 'attack', Enter: 'confirm', KeyE: 'aim',
   ShiftLeft: 'sprint', ShiftRight: 'sprint', ControlLeft: 'crouch',
-  ControlRight: 'crouch', KeyK: 'dodge', KeyX: 'interact'
+  ControlRight: 'crouch', KeyK: 'guard', KeyX: 'interact'
 };

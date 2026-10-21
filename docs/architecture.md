@@ -21,6 +21,16 @@ Rules are split so they cannot drift apart and can be tested without a renderer:
 `document`, `window` or `THREE`. New presentation concerns subscribe to `events` or extend
 `hud.js`; new rules go in their own module, not in `game.js`.
 
+Defense uses a single `guard` action. On the press edge `game.js` asks for a direction: with one
+it starts a dodge (i-frames), without one it starts a block and opens the parry window. Holding
+guard keeps blocking; three blocked hits inside the window break the guard. All of those timers
+live in `combat.js`, never in the input layer.
+
+Presentation is push-only: `main.js` passes `setFeedback({ senseiWindingUp, playerBlocking })` to
+`world.js` each frame and forwards `hit`/`parry`/`block` events as short colour pulses. No render
+module reads gameplay state directly. The frame loop skips updates while the document is hidden,
+and `index.html` reports a load failure if the CDN module never arrives.
+
 One opponent is supported. Sensei is passive during the tutorial. Both fighters can be knocked
 down; a downed player must confirm before the next round starts, while Sensei recovers on his own.
 XP/money, saves and Cipher powers remain deferred, with extension points preserved. Cipher

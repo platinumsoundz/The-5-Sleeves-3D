@@ -16,7 +16,8 @@ ChatGPT-6 Luna, exact model ID unconfirmed. See chapter 4 before editing.
 
 ## Current milestone
 Whitebox village training area: skippable tutorial, then nonlethal staff sparring with Sensei,
-scored first to 3 knockdowns. Core rules, AI and HUD modules are built and headless-tested; the
-first browser test is still outstanding and gates any further feel/tuning work.
+scored first to 3 knockdowns. Guard, block, dodge and parry share one input; Sensei telegraphs
+and punishes whiffs. Core rules, AI, defense, feedback and HUD modules are built and
+headless-tested; the first browser test is still outstanding and gates any feel/tuning work.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

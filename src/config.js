@@ -17,6 +17,20 @@ export const CONFIG = {
   senseiRecover: .55,
   senseiCooldown: .9,
   senseiAccuracy: .8,
+  // Defense: one guard button. Tap alone to block, add a direction to dodge, press just before
+  // impact to parry. Parry rewards timing with an opening; block only softens the hit.
+  guardSpeed: .45,
+  parryWindow: .2,
+  parryRecover: .35,
+  blockDamageScale: .25,
+  guardBreakHits: 3,
+  guardBreakWindow: 3,
+  guardBreakStun: .9,
+  parryStagger: 1.1,
+  whiffPunishTime: 1,
+  whiffPunishReach: 1.2,
+  senseiPunishWindup: .26,
+  knockback: .22,
   // Match structure: knockdowns are points; first to N takes the spar.
   pointsToWin: 3,
   roundPause: 1.2,

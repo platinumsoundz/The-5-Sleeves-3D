@@ -11,3 +11,7 @@ AI provenance (Confirmed by owner): every model signs each file it creates or ma
 Sparring structure (Working — provisional, not owner-approved): knockdowns score a point and the first to 3 takes the spar; a 1.2s pause follows before both fighters reset to their marks. Sensei telegraphs for 0.5s inside 1.9 units and connects at most 0.8 of the time; crouching or dodging avoids a strike. There are no deaths; the result reads as spar complete.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+Defense (owner instruction, numbers provisional): one guard input covers block, dodge and parry. Tap alone to block and hold to keep blocking (45% move speed, 25% damage through); add a direction to dodge; press within 0.2s of impact to parry, which negates the hit and staggers Sensei for 1.1s. Parry cannot be re-armed for 0.35s after the window closes, so mashing guard does not work. Three blocked hits inside 3s break the guard for 0.9s. Crouch is now posture only and no longer avoids strikes; that earlier immunity was accidental and removed so block has a purpose. A whiffed swing within 3.1 units invites a shortened 0.26s Sensei wind-up.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-21

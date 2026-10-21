@@ -8,9 +8,10 @@ export class Hud {
     const el = this.el;
     el.phase.textContent = state.phase === 'spar' ? 'FREE SPAR'
       : state.phase === 'result' ? 'SPAR COMPLETE' : 'TUTORIAL';
-    if (el.score) el.score.textContent = `${state.playerScore} — ${state.senseiScore}`;
+    if (el.score) el.score.textContent = pips(state);
     el.playerHealth.style.width = `${percent(state.playerHp)}%`;
     el.senseiHealth.style.width = `${percent(state.senseiHp)}%`;
+    if (el.warning) el.warning.hidden = !state.warning;
     el.message.textContent = state.message;
     el.prompt.textContent = state.prompt;
     el.device.textContent = state.device;
@@ -26,4 +27,10 @@ export class Hud {
 
 function percent(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+// Filled dots for knockdowns scored, hollow dots for the ones still needed.
+function pips(state) {
+  const mark = score => '●'.repeat(score) + '○'.repeat(Math.max(0, state.needed - score));
+  return `${mark(state.playerScore)} — ${mark(state.senseiScore)}`;
 }
