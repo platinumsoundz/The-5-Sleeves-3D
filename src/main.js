@@ -175,6 +175,12 @@ function beginCapture(device, action, button) {
   padArmedAt = performance.now() + 150;
 }
 
+function cancelCapture() {
+  if (!capture) return;
+  capture.button.textContent = formatBinding(capture.device, capture.action);
+  capture = null;
+}
+
 function finishCapture(value) {
   if (!capture) return;
   bindings = rebind(bindings, capture.device, capture.action, value);
@@ -189,7 +195,12 @@ window.addEventListener('keydown', event => {
   if (!capture || capture.device !== 'keyboard') return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (event.code === 'Escape') { cancelCapture(); return; }
   finishCapture(event.code);
+}, true);
+
+document.addEventListener('pointerdown', event => {
+  if (capture && !event.target.closest?.('.bind-button')) cancelCapture();
 }, true);
 
 function pollPadRebind() {
