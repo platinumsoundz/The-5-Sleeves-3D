@@ -590,7 +590,7 @@ minimap feel, enemy markers, loading and performance still need the owner's scre
 portraits or seen-state save. The tower activation effect, first Cipher speech and live networking
 remain owner-approval/backend items.
 
-**Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/95dec2b/index.html`.
+**Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/0fcbb06/index.html`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 
