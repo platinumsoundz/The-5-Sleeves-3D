@@ -556,7 +556,7 @@ five exports.
 **Gaps/next:** touch-button layout remains deferred. The story deck currently has no branches,
 portraits or seen-state save.
 
-**Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/d058147/index.html`.
+**Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/95dec2b/index.html`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 

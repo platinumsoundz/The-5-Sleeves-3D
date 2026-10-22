@@ -24,7 +24,7 @@ The Cipher Sleeve HUD meter stays hidden unless the test sleeve is equipped. Hip
 
 **Icon artwork:** the owner-supplied source at `icons/source/app-icon.png` has been exported to the runtime files `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. You do not need to replace those five by hand. If the source artwork changes, replace only `icons/source/app-icon.png` and regenerate all five exports; keeping the filenames stable preserves the manifest, iOS meta tag and service-worker cache. Details are in `icons/README.md`.
 
-Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/d058147/index.html`.
+Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/95dec2b/index.html`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass; sleeve meter hidden until acquisition)
