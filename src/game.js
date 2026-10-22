@@ -2,6 +2,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch state)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Sparring loop orchestrator: tutorial, movement, strikes, rounds and match completion.
 // Rules live in fighter/combat/ai/match; DOM writes live in hud.js, so this class stays
 // runnable under `node --test` with stub world, input and UI objects.
@@ -16,9 +17,11 @@ import { Resource } from './resources.js';
 import { EventFeed } from './log.js';
 import { deleteSave, writeSave } from './save.js';
 import { redeemDevCode } from './devcodes.js';
+import { WEAPON_ORDER, UNARMED_MOVES, weaponById, cycleWeapon as nextWeapon } from './weapons.js';
 
 const START = { player: 2.5, sensei: -2.5 };
 const clamp = n => Math.max(-CONFIG.arenaLimit, Math.min(CONFIG.arenaLimit, n));
+const clampRange = (n, min, max) => Math.max(min, Math.min(max, n));
 
 export class Game {
   constructor(world, input, ui, { events = new Events() } = {}) {
@@ -29,6 +32,25 @@ export class Game {
     this.playerCombat = new CombatState();
     this.ai = new SenseiAI();
     this.match = new Match();
+    this.encounters = (world.enemies || []).map((enemy, index) => ({
+      id: enemy.id || `raider-${index + 1}`,
+      name: enemy.name || 'RAIDER',
+      root: enemy.root,
+      parts: enemy.parts,
+      weapon: enemy.weapon || 'staff',
+      home: enemy.home || { x: enemy.root?.position?.x || 0, z: enemy.root?.position?.z || 0 },
+      state: new FighterState({ maxHp: CONFIG.wildEnemyHp }),
+      ai: new SenseiAI(),
+      defeated: false
+    }));
+    this.zone = 'training';
+    this.weapon = 'staff';
+    this.weaponIndex = 0;
+    this.attackMove = null;
+    this.unarmedStep = 0;
+    this.unarmedTimer = 0;
+    this.towerReached = false;
+    this.lockTarget = null;
     this.stamina = new Resource(CONFIG.maxStamina, { regen: CONFIG.staminaRegen, delay: CONFIG.staminaDelay });
     this.sleeveAcquired = false;
     this.log = new EventFeed();
@@ -69,6 +91,16 @@ export class Game {
     this.skipVisible = true;
     this.restartVisible = false;
     this.world.setLocked(false);
+    this.world.setZone?.('training');
+    this.zone = 'training';
+    this.weapon = 'staff';
+    this.weaponIndex = 0;
+    this.attackMove = null;
+    this.unarmedStep = 0;
+    this.unarmedTimer = 0;
+    this.towerReached = false;
+    this.lockTarget = null;
+    this.world.playerParts?.setWeapon?.('staff');
     this.player.reset();
     this.sensei.reset();
     this.playerCombat.reset();
@@ -76,6 +108,7 @@ export class Game {
     this.match.reset();
     this.stamina.reset();
     this.resetFighters();
+    this.resetEncounters();
     this.input.reset();
     this.show(this.tip({
       pc: 'Step 1/4: move with WASD. Sensei is passive.',
@@ -206,7 +239,7 @@ export class Game {
     this.phase = 'spar';
     this.skipVisible = false;
     this.restartVisible = true;
-    this.show(`Free spar: first to ${this.match.needed} knockdowns wins. Sensei recovers on his own.`);
+    this.show(`Free spar: first to ${this.match.needed} knockdowns wins. D-pad ←/→ cycles weapons.`);
     this.log.push(`Free spar — first to ${this.match.needed} knockdowns.`, 'info');
     this.events.emit('tutorial-end');
     this.paint();
@@ -255,25 +288,30 @@ export class Game {
       return;
     }
 
+    this.handleWeaponInput();
     this.stamina.update(dt);
     const move = this.input.move();
     const dx = move.x;
     const dz = move.z;
 
     this.aiming = this.input.isDown('aim');
-    this.locked = this.aiming;
+    this.lockTarget = this.combatTarget();
+    this.locked = this.aiming && !!this.lockTarget;
     this.world.setLocked(this.locked);
     this.blocking = this.phase !== 'result' && !this.player.isDown
       && this.input.isDown('guard') && !this.playerCombat.invulnerable
       && !this.playerCombat.guardBroken;
 
+    if (this.unarmedTimer > 0) this.unarmedTimer = Math.max(0, this.unarmedTimer - dt);
     this.tutorial(dx, dz);
 
     if (this.phase !== 'result') {
       if (this.player.isDown) this.recoverPlayer();
       else this.movePlayer(dt, dx, dz);
+      this.updateZone();
       this.advanceTimers(dt);
-      this.moveSensei(dt);
+      if (this.zone === 'wilds') this.moveWildEnemies(dt);
+      else this.moveSensei(dt);
       this.advanceRound(dt);
     }
 
@@ -287,14 +325,290 @@ export class Game {
     return this.input.device === 'touch' ? touch : this.input.device === 'gamepad' ? pad : pc;
   }
 
+  handleWeaponInput() {
+    if (this.input.consume('weaponPrev')) this.switchWeapon(-1);
+    if (this.input.consume('weaponNext')) this.switchWeapon(1);
+  }
+
+  switchWeapon(direction) {
+    if (this.player.isDown) return;
+    const next = nextWeapon(this.weapon, direction);
+    if (next === this.weapon) return;
+    this.weapon = next;
+    this.weaponIndex = Math.max(0, WEAPON_ORDER.indexOf(next));
+    this.attackMove = null;
+    this.unarmedStep = 0;
+    this.unarmedTimer = 0;
+    this.world.playerParts?.setWeapon?.(next);
+    const weapon = weaponById(next);
+    if (weapon.testOnly) {
+      this.show('CIPHER SLEEVE · TEST equipped — a developer test asset, not story acquisition.');
+      this.log.push('Cipher Sleeve test asset equipped.', 'warn');
+    } else {
+      this.show(`${weapon.name} equipped.`);
+      this.log.push(`${weapon.name} equipped.`, 'info');
+    }
+    this.events.emit('weapon-change', { weapon: next });
+    this.paint();
+  }
+
+  get weaponName() {
+    return weaponById(this.weapon).name;
+  }
+
+  combatTarget() {
+    if (this.zone === 'wilds') return this.nearestEnemy();
+    return this.phase === 'result' ? null : this.world.sensei;
+  }
+
+  nearestEnemy(maxDistance = Infinity) {
+    const player = this.world.player.position;
+    let best = null;
+    let bestDistance = maxDistance;
+    for (const enemy of this.encounters) {
+      if (enemy.defeated || enemy.state.isDown || !enemy.root) continue;
+      const point = enemy.root.position;
+      const distance = Math.hypot(point.x - player.x, point.z - player.z);
+      if (distance < bestDistance) {
+        best = enemy;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  targetPoint(target) {
+    return target?.root?.position || target?.position || null;
+  }
+
+  distanceTo(target) {
+    const point = this.targetPoint(target);
+    const player = this.world.player.position;
+    return point ? Math.hypot(point.x - player.x, point.z - player.z) : Infinity;
+  }
+
+  constrainPlayer(position) {
+    const player = this.world.player;
+    if (this.zone === 'training') {
+      position.x = clampRange(position.x, -CONFIG.trainingHalfX, CONFIG.trainingHalfX);
+      position.z = clampRange(position.z, -10.6, CONFIG.trainingMaxZ);
+    } else {
+      position.x = clampRange(position.x, -CONFIG.wildHalfX, CONFIG.wildHalfX);
+      position.z = clampRange(position.z, CONFIG.wildMinZ, CONFIG.wildMaxZ);
+    }
+    player.position.x = position.x;
+    player.position.z = position.z;
+  }
+
+  nearGate() {
+    const position = this.world.player.position;
+    if (this.zone === 'training') return position.z <= -9.7 && Math.abs(position.x) <= CONFIG.gateHalf + .6;
+    return position.z >= CONFIG.wildMaxZ - .6 && Math.abs(position.x) <= CONFIG.gateHalf + 1.2;
+  }
+
+  useGate() {
+    if (!this.nearGate()) return false;
+    const position = this.world.player.position;
+    if (this.zone === 'training') {
+      this.zone = 'wilds';
+      position.set(0, 0, CONFIG.wildMaxZ - 1.1);
+      this.world.setZone?.('wilds');
+      this.roundTimer = 0;
+      this.show('Wilderness — follow the track to the first tower.');
+      this.log.push('Passed through the north gate.', 'info');
+      this.events.emit('zone', { zone: 'wilds' });
+    } else {
+      this.zone = 'training';
+      position.set(0, 0, -9.9);
+      this.world.setZone?.('training');
+      if (this.phase === 'spar' && (this.player.isDown || this.sensei.isDown) && this.roundTimer <= 0) {
+        this.roundTimer = CONFIG.roundPause;
+      }
+      this.show('Training yard — spar rules apply.');
+      this.log.push('Returned to the training yard.', 'info');
+      this.events.emit('zone', { zone: 'training' });
+    }
+    return true;
+  }
+
+  updateZone() {
+    const position = this.world.player.position;
+    if (this.zone === 'wilds' && !this.towerReached && position.z <= CONFIG.wildTowerZ) {
+      this.towerReached = true;
+      this.show('First tower reached. The test slice ends here.');
+      this.log.push('Reached the first tower.', 'good');
+      this.events.emit('tower-reached', { tower: { x: 0, z: -63 } });
+    }
+  }
+
+  resetEncounters() {
+    for (const enemy of this.encounters) {
+      enemy.state.reset();
+      enemy.ai.reset();
+      enemy.defeated = false;
+      if (!enemy.root) continue;
+      enemy.root.visible = true;
+      enemy.root.position.set(enemy.home.x, 0, enemy.home.z);
+      enemy.root.rotation.set(0, Math.PI, 0);
+    }
+  }
+
+  beginPlayerAttack() {
+    let move = 'swing';
+    let stats;
+    if (this.weapon === 'unarmed') {
+      const step = this.unarmedTimer > 0 ? (this.unarmedStep + 1) % UNARMED_MOVES.length : 0;
+      this.unarmedStep = step;
+      this.unarmedTimer = 1.05;
+      stats = UNARMED_MOVES[step];
+      move = stats.id;
+    } else {
+      stats = weaponById(this.weapon);
+      move = this.weapon === 'cipher' ? 'sleeve' : 'swing';
+    }
+    this.playerCombat.beginAttack({ cooldown: stats.cooldown, duration: stats.anim });
+    this.attackMove = move;
+    this.events.emit('swing', { weapon: this.weapon, move });
+    this.resolveAttack(stats, move);
+  }
+
+  resolveAttack(stats, move) {
+    if (this.zone === 'wilds') {
+      this.resolveWildAttack(stats, move);
+      return;
+    }
+    if (this.phase !== 'spar' || this.sensei.isDown) return;
+    const distance = this.distanceTo(this.world.sensei);
+    if (distance >= stats.range) {
+      this.ai.noticeWhiff(distance, this.playerCombat.invulnerable);
+      this.events.emit('whiff', { distance, weapon: this.weapon, move });
+      return;
+    }
+
+    const result = this.sensei.hit(stats.damage);
+    if (result === KNOCKDOWN) {
+      this.onKnockdown('player');
+      return;
+    }
+    if (result === HIT) {
+      this.knockback(this.world.sensei, this.world.player, stats.knockback);
+      if (move === 'grab') this.ai.stagger(stats.stagger || 1);
+      this.events.emit('hit', { target: 'sensei', weapon: this.weapon, move });
+      if (move === 'grab') this.events.emit('grab', { target: 'sensei' });
+    }
+  }
+
+  resolveWildAttack(stats, move) {
+    if (this.player.isDown) return;
+    const target = this.nearestEnemy();
+    if (!target) {
+      this.events.emit('whiff', { distance: Infinity, weapon: this.weapon, move });
+      return;
+    }
+    const distance = this.distanceTo(target);
+    if (distance > stats.range) {
+      target.ai.noticeWhiff?.(distance, this.playerCombat.invulnerable);
+      this.events.emit('whiff', { distance, weapon: this.weapon, move });
+      return;
+    }
+
+    const result = target.state.hit(stats.damage);
+    if (result === KNOCKDOWN) {
+      this.onEnemyDown(target);
+      return;
+    }
+    if (result === HIT) {
+      this.knockback(target.root, this.world.player, stats.knockback);
+      if (move === 'grab') target.ai.stagger(stats.stagger || 1);
+      this.events.emit('hit', { target: target.id, weapon: this.weapon, move });
+      if (move === 'grab') this.events.emit('grab', { target: target.id });
+      if (move === 'sleeve') this.events.emit('sleeve-pulse', { target: target.id });
+    }
+  }
+
+  onEnemyDown(enemy) {
+    enemy.defeated = true;
+    enemy.root.rotation.z = Math.PI / 2;
+    enemy.root.position.y = -.35;
+    this.show(`${enemy.name} down — out of the fight.`);
+    this.log.push(`${enemy.name} knocked down.`, 'good');
+    this.events.emit('enemy-down', { target: enemy.id, name: enemy.name });
+  }
+
+  moveWildEnemies(dt) {
+    const player = this.world.player;
+    for (const enemy of this.encounters) {
+      if (enemy.defeated || !enemy.root) continue;
+      const point = enemy.root.position;
+      const vx = player.position.x - point.x;
+      const vz = player.position.z - point.z;
+      const distance = Math.hypot(vx, vz);
+      const active = distance < CONFIG.wildAggro && !this.player.isDown && this.phase !== 'result';
+      const intent = enemy.ai.update(dt, {
+        active,
+        senseiDown: enemy.state.isDown,
+        playerDown: this.player.isDown,
+        playerInvulnerable: this.playerCombat.invulnerable,
+        distance
+      });
+
+      if (intent.approach && distance > .001) {
+        point.x = clampRange(point.x + vx / distance * CONFIG.wildSpeed * dt, -CONFIG.wildHalfX + 2, CONFIG.wildHalfX - 2);
+        point.z = clampRange(point.z + vz / distance * CONFIG.wildSpeed * dt, CONFIG.wildMinZ + 1, -15);
+      }
+      if (distance > .001) enemy.root.rotation.y = Math.atan2(vx, vz);
+      const weaponNode = enemy.parts?.[enemy.weapon === 'katana' ? 'katana' : 'stick'];
+      if (weaponNode) {
+        const targetZ = enemy.ai.windingUp ? .72 : 0;
+        weaponNode.rotation.z += (targetZ - weaponNode.rotation.z) * Math.min(1, dt * 12);
+      }
+
+      if (!intent.strike || this.player.isDown) continue;
+      if (this.playerCombat.parryReady) {
+        this.playerCombat.consumeParry();
+        this.playerCombat.clearBlockPressure();
+        enemy.ai.stagger();
+        this.knockback(enemy.root, player, CONFIG.knockback * 2);
+        this.show('Parried. The raider is open.');
+        this.log.push('Parried a raider.', 'good');
+        this.events.emit('parry');
+        continue;
+      }
+
+      const damage = this.blocking ? CONFIG.wildDamage * CONFIG.blockDamageScale : CONFIG.wildDamage;
+      const result = player.hit(damage);
+      this.knockback(player, enemy.root, CONFIG.knockback);
+      if (result === KNOCKDOWN) {
+        this.downPlayerWild(enemy);
+      } else if (result === HIT) {
+        if (this.blocking && this.playerCombat.registerBlock()) {
+          this.events.emit('block', { target: 'player' });
+          this.events.emit('guard-break');
+          this.log.push('Guard broken — give ground.', 'warn');
+          this.show('Guard broken — give ground and reset.');
+        } else {
+          this.events.emit(this.blocking ? 'block' : 'hit', { target: 'player' });
+        }
+      }
+    }
+  }
+
+  downPlayerWild(enemy) {
+    this.events.emit('knockdown', {
+      scorer: 'enemy', enemy: enemy?.id, player: this.match.player, sensei: this.match.sensei
+    });
+    this.log.push('Raider scores a knockdown.', 'bad');
+    this.show('Downed. Wait, then press A / Enter / confirm to get up.');
+  }
+
   tutorial(dx, dz) {
     if (this.phase !== 'tutorial') return;
     if (this.step === 0 && (dx || dz)) {
       this.step = 1;
       this.show(this.tip({
-        pc: 'Step 2/4: staff attack with LMB or J.',
-        pad: 'Step 2/4: staff attack with RT.',
-        touch: 'Step 2/4: staff attack with the STAFF button.'
+        pc: 'Step 2/4: attack with LMB or J. [ / ] cycles weapons.',
+        pad: 'Step 2/4: attack with RT. D-pad ←/→ cycles weapons.',
+        touch: 'Step 2/4: attack with the STAFF button. SWAP cycles weapons.'
       }));
     }
     if (this.step === 1 && this.input.isDown('attack')) {
@@ -339,12 +653,12 @@ export class Game {
       player.position.x += dx * speed * dt;
       player.position.z += dz * speed * dt;
     }
-    player.position.x = clamp(player.position.x);
-    player.position.z = clamp(player.position.z);
+    this.constrainPlayer(player.position);
 
     if (dx || dz) player.rotation.y = Math.atan2(dx, dz);
     if (this.locked) {
-      player.rotation.y = Math.atan2(sensei.position.x - player.position.x, sensei.position.z - player.position.z);
+      const point = this.targetPoint(this.lockTarget);
+      if (point) player.rotation.y = Math.atan2(point.x - player.position.x, point.z - player.position.z);
     }
 
     this.crouching = this.input.isDown('crouch');
@@ -358,6 +672,8 @@ export class Game {
       if (player.position.y < 0) { player.position.y = 0; player.userData.vy = 0; }
     }
 
+    if (this.input.consume('interact')) this.useGate();
+
     if (this.input.consume('guard')) {
       if ((dx || dz) && this.stamina.spend(CONFIG.dodgeCost)) {
         this.playerCombat.beginDodge(dx, dz, player.rotation.y);
@@ -370,22 +686,7 @@ export class Game {
     }
 
     if (this.input.consume('attack') && this.playerCombat.canAttack && !this.blocking) {
-      this.playerCombat.beginAttack();
-      this.events.emit('swing');
-      const distance = player.position.distanceTo(sensei.position);
-      if (this.phase === 'spar' && !this.sensei.isDown) {
-        if (distance < CONFIG.range) {
-          if (this.sensei.hit(CONFIG.damage) === KNOCKDOWN) {
-            this.onKnockdown('player');
-          } else {
-            this.knockback(sensei, player, CONFIG.knockback);
-            this.events.emit('hit', { target: 'sensei' });
-          }
-        } else {
-          this.ai.noticeWhiff(distance);
-          this.events.emit('whiff', { distance });
-        }
-      }
+      this.beginPlayerAttack();
     }
   }
 
@@ -395,8 +696,12 @@ export class Game {
     if (!wantsUp) return;
     this.player.confirm();
     this.resetPose(this.world.player);
-    this.roundTimer = CONFIG.roundPause;
-    this.show('You recover and rejoin practice.');
+    if (this.zone === 'training') {
+      this.roundTimer = CONFIG.roundPause;
+      this.show('You recover and rejoin practice.');
+    } else {
+      this.show('You recover. The raiders are still out there.');
+    }
     this.events.emit('recover', { who: 'player' });
   }
 
@@ -416,7 +721,7 @@ export class Game {
     const vx = player.position.x - sensei.position.x;
     const vz = player.position.z - sensei.position.z;
     const distance = Math.hypot(vx, vz);
-    const active = this.phase === 'spar' && !this.match.over;
+    const active = this.zone === 'training' && this.phase === 'spar' && !this.match.over;
 
     const intent = this.ai.update(dt, {
       active,
@@ -488,7 +793,7 @@ export class Game {
   }
 
   advanceRound(dt) {
-    if (this.phase !== 'spar' || this.match.over || this.roundTimer <= 0) return;
+    if (this.zone !== 'training' || this.phase !== 'spar' || this.match.over || this.roundTimer <= 0) return;
     if (this.player.isDown || this.sensei.isDown) return;
     this.roundTimer -= dt;
     if (this.roundTimer > 0) return;
@@ -525,8 +830,15 @@ export class Game {
     const dx = target.position.x - source.position.x;
     const dz = target.position.z - source.position.z;
     const length = Math.hypot(dx, dz) || 1;
-    target.position.x = clamp(target.position.x + dx / length * amount);
-    target.position.z = clamp(target.position.z + dz / length * amount);
+    const nextX = target.position.x + dx / length * amount;
+    const nextZ = target.position.z + dz / length * amount;
+    if (this.zone === 'training') {
+      target.position.x = clampRange(nextX, -CONFIG.trainingHalfX, CONFIG.trainingHalfX);
+      target.position.z = clampRange(nextZ, -10.6, CONFIG.trainingMaxZ);
+    } else {
+      target.position.x = clampRange(nextX, -CONFIG.wildHalfX, CONFIG.wildHalfX);
+      target.position.z = clampRange(nextZ, CONFIG.wildMinZ, CONFIG.wildMaxZ);
+    }
   }
 
   poseFighters(dt) {
@@ -547,23 +859,49 @@ export class Game {
       sensei.position.y += (0 - sensei.position.y) * Math.min(1, dt * 8);
     }
     this.world.playerParts.stick.rotation.z = this.playerCombat.swingAngle;
+
+    for (const enemy of this.encounters) {
+      if (!enemy.root) continue;
+      if (enemy.defeated) {
+        enemy.root.rotation.z = Math.PI / 2;
+        enemy.root.position.y = -.35;
+      } else {
+        enemy.root.rotation.z += (0 - enemy.root.rotation.z) * Math.min(1, dt * 8);
+        enemy.root.position.y += (0 - enemy.root.position.y) * Math.min(1, dt * 8);
+      }
+    }
   }
 
   paint() {
     const player = this.world.player;
     const sensei = this.world.sensei;
+    const target = this.zone === 'wilds' ? this.nearestEnemy() : null;
+    const targetHp = this.zone === 'wilds' ? (target?.state.hp ?? 0) : this.sensei.hp;
+    const targetDown = this.zone === 'wilds' ? (target?.state.isDown ?? false) : this.sensei.isDown;
+    const warning = this.zone === 'wilds'
+      ? !!target?.ai?.windingUp
+      : this.ai.windingUp;
+    const weapon = weaponById(this.weapon);
+    const prompt = this.phase === 'result'
+      ? 'Spar complete — use RESTART PRACTICE to spar again.'
+      : this.towerReached
+        ? 'First tower reached — the wilderness test slice ends here.'
+        : this.nearGate()
+          ? 'USE / F: pass through the north gate.'
+          : this.input.controlHints(this.phase, this.player.isDown ? this.player.down : 0);
+
     this.hud.sync({
-      phase: this.phase,
+      phase: this.zone === 'wilds' ? 'wilds' : this.phase,
       playerHp: this.player.hp,
-      senseiHp: this.sensei.hp,
+      senseiHp: targetHp,
+      targetDown,
+      targetName: this.zone === 'wilds' ? (target?.name || 'WILDERNESS') : 'SENSEI',
       playerScore: this.match.player,
       senseiScore: this.match.sensei,
       needed: this.match.needed,
-      warning: this.phase === 'spar' && this.ai.windingUp,
+      warning,
       message: this.message ?? '',
-      prompt: this.phase === 'result'
-        ? 'Spar complete — use RESTART PRACTICE to spar again.'
-        : this.input.controlHints(this.phase, this.player.isDown),
+      prompt,
       device: this.input.deviceLabel(),
       touch: this.input.device === 'touch',
       aiming: this.aiming,
@@ -581,11 +919,25 @@ export class Game {
       permissions: this.progress.permissions,
       tutorialDone: this.phase !== 'tutorial',
       stamina: this.stamina.ratio,
-      sleeveAcquired: this.sleeveAcquired,
+      sleeveAcquired: this.sleeveAcquired || this.weapon === 'cipher',
+      sleeve: this.weapon === 'cipher' ? 1 : 0,
+      weapon: this.weapon,
+      weaponName: weapon.name,
+      weaponShort: weapon.short,
+      weaponTest: weapon.testOnly === true,
+      zone: this.zone,
+      towerReached: this.towerReached,
       feed: this.log.items,
       player: { x: player.position.x, z: player.position.z, yaw: player.rotation.y },
       sensei: { x: sensei.position.x, z: sensei.position.z },
-      arena: CONFIG.arenaLimit
+      enemies: this.encounters.map(enemy => ({
+        id: enemy.id,
+        name: enemy.name,
+        x: enemy.root?.position?.x ?? enemy.home.x,
+        z: enemy.root?.position?.z ?? enemy.home.z,
+        alive: !enemy.defeated
+      })),
+      arena: this.zone === 'wilds' ? 70 : CONFIG.arenaLimit
     });
   }
 }

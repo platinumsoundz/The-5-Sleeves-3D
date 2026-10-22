@@ -2,12 +2,13 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated pose)
 
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim)
-// Render world: procedural settlement, character whitebox, drag-orbit camera and feedback tints.
-// Presentation only — no gameplay rules. main.js pushes feedback state and pulse events in.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// Render world: training yard, wilderness track, character whiteboxes and raiders, camera and
+// feedback tints. Presentation only — no gameplay rules. main.js pushes state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { CONFIG } from './config.js';
 import { clamp } from './controls.js';
-import { buildTrainingGround } from './scenery.js';
+import { buildTrainingGround, buildWilderness } from './scenery.js';
 import { createFighter } from './characters.js';
 
 function blobShadow(size = 1.9) {
@@ -34,9 +35,9 @@ function blobShadow(size = 1.9) {
 export function createWorld(host) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x88948e);
-  scene.fog = new THREE.Fog(0x8e9a94, 18, 62);
+  scene.fog = new THREE.Fog(0x8e9a94, 28, 118);
 
-  const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 140);
+  const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 180);
   camera.position.set(0, 5.4, 8.5);
   camera.lookAt(0, 1.2, 0);
 
@@ -67,6 +68,7 @@ export function createWorld(host) {
   });
 
   const ground = buildTrainingGround(scene);
+  const wilderness = buildWilderness(scene);
 
   scene.add(new THREE.HemisphereLight(0xb6cac5, 0x3b4033, 1.35));
   const sun = new THREE.DirectionalLight(0xffd0a0, 2.55);
@@ -85,6 +87,26 @@ export function createWorld(host) {
   const playerShadow = blobShadow(1.75);
   const senseiShadow = blobShadow(2.05);
   scene.add(playerShadow, senseiShadow);
+
+  const enemies = wilderness.enemySpawns.map((spawn, index) => {
+    const parts = createFighter('raider', { weapon: spawn.weapon });
+    parts.root.position.set(spawn.x, 0, spawn.z);
+    parts.root.rotation.y = Math.PI;
+    scene.add(parts.root);
+    const shadow = blobShadow(1.85);
+    scene.add(shadow);
+    return {
+      ...spawn,
+      index,
+      root: parts.root,
+      parts,
+      shadow,
+      home: { x: spawn.x, z: spawn.z }
+    };
+  });
+  const enemyPhases = enemies.map(() => 0);
+  const previousEnemies = enemies.map(enemy => enemy.root.position.clone());
+  let zone = 'training';
 
   let yaw = 0;
   let yawOffset = 0;
@@ -127,7 +149,14 @@ export function createWorld(host) {
   // Short-lived colour flashes on a landed hit, parry or block.
   const flashUntil = { player: 0, sensei: 0 };
   const flashColor = { player: new THREE.Color(), sensei: new THREE.Color() };
-  let feedback = { senseiWindingUp: false, playerBlocking: false, aiming: false, crouching: false, swing: 0 };
+  for (const enemy of enemies) {
+    flashUntil[enemy.id] = 0;
+    flashColor[enemy.id] = new THREE.Color();
+  }
+  let feedback = {
+    senseiWindingUp: false, playerBlocking: false, aiming: false, crouching: false, swing: 0,
+    weapon: 'staff', attackMove: null, attackProgress: 0
+  };
   let wasWinding = false;
   let senseiFollowThrough = 0;
   const previousPlayer = playerFighter.root.position.clone();
@@ -141,10 +170,13 @@ export function createWorld(host) {
     sensei: senseiFighter.root,
     playerParts: playerFighter,
     senseiParts: senseiFighter,
+    enemies,
+    wilderness,
     camera,
     renderer,
 
     setLocked(value) { locked = value; },
+    setZone(value) { zone = value === 'wilds' ? 'wilds' : 'training'; },
 
     // Gamepad look and programmatic drags arrive here; touch/mouse drags call it internally.
     look,
@@ -174,7 +206,10 @@ export function createWorld(host) {
         playerBlocking: next.playerBlocking === true,
         aiming: next.aiming === true,
         crouching: next.crouching === true,
-        swing: Number.isFinite(next.swing) ? next.swing : 0
+        swing: Number.isFinite(next.swing) ? next.swing : 0,
+        weapon: typeof next.weapon === 'string' ? next.weapon : 'staff',
+        attackMove: next.attackMove || null,
+        attackProgress: Number.isFinite(next.attackProgress) ? next.attackProgress : 0
       };
     },
 
@@ -189,6 +224,7 @@ export function createWorld(host) {
       const time = now * .001;
       senseiFollowThrough = Math.max(0, senseiFollowThrough - dt);
       ground.update(now, dt);
+      wilderness.update(now, dt);
 
       const flashP = flashUntil.player > now;
       const flashE = flashUntil.sensei > now;
@@ -203,6 +239,18 @@ export function createWorld(host) {
 
       // Idle breathing, articulated gait, crouch and a small lift that keeps the body from
       // sinking through the ground while the gameplay root is rotated for a knockdown.
+      playerFighter.setWeapon(feedback.weapon);
+      senseiFighter.setWeapon('staff');
+      for (const enemy of enemies) enemy.parts.setWeapon(enemy.weapon);
+
+      for (const enemy of enemies) {
+        const enemyFlash = flashUntil[enemy.id] > now;
+        enemy.parts.setTint(
+          enemyFlash ? flashColor[enemy.id].getHex() : 0x000000,
+          enemyFlash ? .82 : 0
+        );
+      }
+
       const p = playerFighter.root.position;
       const e = senseiFighter.root.position;
       const pDown = Math.min(1, Math.abs(playerFighter.root.rotation.z) / (Math.PI / 2));
@@ -218,9 +266,27 @@ export function createWorld(host) {
       const eWalk = sDown ? 0 : Math.min(1.5, eSpeed / CONFIG.move);
       const pStep = playerFighter.pose({
         walk: pWalk, phase: playerPhase, crouch: pDown ? 0 : playerCrouch, swing: feedback.swing,
-        guard: feedback.playerBlocking
+        guard: feedback.playerBlocking, weapon: feedback.weapon,
+        attackMove: feedback.attackMove, attackProgress: feedback.attackProgress
       });
       const eStep = senseiFighter.pose({ walk: eWalk, phase: senseiPhase });
+
+      enemies.forEach((enemy, index) => {
+        const enemyDown = Math.min(1, Math.abs(enemy.root.rotation.z) / (Math.PI / 2));
+        const ep = enemy.root.position;
+        const speed = Math.hypot(ep.x - previousEnemies[index].x, ep.z - previousEnemies[index].z) / Math.max(dt, .001);
+        enemyPhases[index] += speed * dt * 2.45;
+        previousEnemies[index].copy(ep);
+        const step = enemy.parts.pose({
+          walk: enemyDown ? 0 : Math.min(1.5, speed / CONFIG.move),
+          phase: enemyPhases[index], weapon: enemy.weapon
+        });
+        enemy.parts.visual.position.y = Math.sin(time * 1.5 + index) * .006 + enemyDown * .55 + step;
+        enemy.parts.root.rotation.x = 0;
+        enemy.shadow.position.set(ep.x, .043, ep.z);
+        const lift = Math.max(.55, 1 - Math.max(0, ep.y) * .42);
+        enemy.shadow.scale.set(lift, lift, 1);
+      });
       playerFighter.visual.position.y = Math.sin(time * 1.7) * .007 + pDown * .55 + pStep;
       senseiFighter.visual.position.y = Math.sin(time * 1.45 + 1.8) * .007 + sDown * .55 + eStep;
       const ease = Math.min(1, dt * 10);
@@ -229,8 +295,13 @@ export function createWorld(host) {
       playerFighter.upper.rotation.y += (feedback.swing * .16 - playerFighter.upper.rotation.y) * ease;
       senseiFighter.upper.rotation.x += ((feedback.senseiWindingUp ? .1 : 0) - senseiFighter.upper.rotation.x) * ease;
 
-      const playerStaffX = feedback.playerBlocking ? 0 : Math.PI / 2;
-      playerFighter.stick.rotation.x += (playerStaffX - playerFighter.stick.rotation.x) * Math.min(1, dt * 16);
+      const weaponNode = feedback.weapon === 'katana' ? playerFighter.katana
+        : feedback.weapon === 'staff' ? playerFighter.stick : null;
+      if (weaponNode) {
+        const weaponX = feedback.playerBlocking ? 0 : Math.PI / 2;
+        weaponNode.rotation.x += (weaponX - weaponNode.rotation.x) * Math.min(1, dt * 16);
+        weaponNode.rotation.z += (feedback.swing - weaponNode.rotation.z) * Math.min(1, dt * 24);
+      }
       const senseiStaffX = feedback.senseiWindingUp ? .82 : Math.PI / 2;
       const senseiStaffZ = feedback.senseiWindingUp ? .5 : senseiFollowThrough > 0 ? -.28 : 0;
       senseiFighter.stick.rotation.x += (senseiStaffX - senseiFighter.stick.rotation.x) * Math.min(1, dt * 11);
@@ -262,10 +333,12 @@ export function createWorld(host) {
         camera.position.lerp(aimPosition, 1 - Math.exp(-dt * 14));
         camera.lookAt(aimFocus);
       } else {
-        const mid = p.clone().lerp(e, locked ? 0.5 : 0);
-        const lockAngle = Math.atan2(p.x - e.x, p.z - e.z);
+        const mid = zone === 'wilds' ? p.clone() : p.clone().lerp(e, locked ? 0.5 : 0);
+        const lockAngle = zone === 'wilds'
+          ? playerFighter.root.rotation.y + Math.PI
+          : Math.atan2(p.x - e.x, p.z - e.z);
         const angle = locked ? lockAngle + yawOffset : yaw;
-        const distance = CONFIG.cameraDistance;
+        const distance = zone === 'wilds' ? CONFIG.cameraDistance * .9 : CONFIG.cameraDistance;
         const focus = new THREE.Vector3(mid.x, 1.18, mid.z);
         const target = new THREE.Vector3(
           focus.x + Math.sin(angle) * Math.cos(pitch) * distance,

@@ -1,6 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Every DOM write lives here so Game stays testable without a document. Elements are injected,
 // never queried, and optional ones are tolerated for older shells.
 import { radarOffset } from './radar.js';
@@ -14,8 +15,19 @@ export class Hud {
     const playing = screen === 'playing';
 
     el.phase.textContent = state.phase === 'spar' ? 'FREE SPAR'
-      : state.phase === 'result' ? 'SPAR COMPLETE' : 'TUTORIAL';
-    if (el.score) el.score.textContent = pips(state);
+      : state.phase === 'result' ? 'SPAR COMPLETE'
+        : state.phase === 'wilds' ? 'WILDERNESS' : 'TUTORIAL';
+    if (el.targetName) el.targetName.textContent = state.targetName || 'SENSEI';
+    if (el.score) {
+      el.score.textContent = pips(state);
+      el.score.hidden = state.zone === 'wilds';
+    }
+    if (el.weapon) {
+      el.weapon.textContent = state.weaponShort || 'STAFF';
+      el.weapon.classList?.toggle('test', state.weaponTest === true);
+      el.weapon.classList?.toggle('unarmed', state.weapon === 'unarmed');
+    }
+    if (el.zone) el.zone.textContent = state.zone === 'wilds' ? 'WILDERNESS' : 'TRAINING YARD';
     el.playerHealth.style.width = `${percent(state.playerHp)}%`;
     el.senseiHealth.style.width = `${percent(state.senseiHp)}%`;
     if (el.playerStamina) el.playerStamina.style.width = `${percent(state.stamina * 100)}%`;
@@ -28,6 +40,7 @@ export class Hud {
     if (el.warning) el.warning.hidden = !state.warning || !playing;
     el.message.textContent = state.message;
     el.prompt.textContent = state.prompt;
+    if (el.sleeveVital) el.sleeveVital.classList?.toggle('test', state.weaponTest === true);
     el.device.textContent = state.device;
 
     if (el.hud) el.hud.hidden = screen === 'title';
@@ -54,21 +67,40 @@ export class Hud {
 
     // Radar: the player sits at the centre facing up; Sensei is projected relative to them.
     if (el.radarSensei && state.player && state.sensei) {
+      el.radarSensei.hidden = state.zone === 'wilds';
       const spot = radarOffset(state.player, state.player.yaw, state.sensei, state.arena || 6, 40);
       el.radarSensei.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
       el.radarSensei.classList?.toggle('off', spot.clamped);
+    }
+
+    if (el.radarEnemies) {
+      el.radarEnemies.forEach((node, index) => {
+        const enemy = state.enemies?.[index];
+        const show = state.zone === 'wilds' && enemy && enemy.alive;
+        node.hidden = !show;
+        if (!show) return;
+        const spot = radarOffset(state.player, state.player.yaw, enemy, 24, 40);
+        node.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
+        node.classList?.toggle('off', spot.clamped);
+      });
     }
 
     // Larger maps stay north-up so the training ground is easy to read.
     if (el.mapPlayers || el.mapSenseis) {
       const place = (node, point) => {
         const x = 50 + (point.x / (state.arena || 6)) * 42;
-        const y = 50 - (point.z / (state.arena || 6)) * 42;
+        // North is negative z (the gate and tower lie up-screen), so flip the depth axis.
+        const y = 50 + (point.z / (state.arena || 6)) * 42;
         node.style.left = `${x}%`;
         node.style.top = `${y}%`;
       };
       for (const node of el.mapPlayers || []) place(node, state.player);
       for (const node of el.mapSenseis || []) place(node, state.sensei);
+      for (const [index, node] of (el.mapEnemies || []).entries()) {
+        const enemy = state.enemies?.[index];
+        node.hidden = !enemy || !enemy.alive;
+        if (enemy) place(node, enemy);
+      }
     }
 
     if (el.feedLines) {

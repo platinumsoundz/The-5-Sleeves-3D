@@ -334,3 +334,56 @@ This agent did not author or alter their canon claims.
 **Verification:** `node --check` clean; `npm test` → 53/53; local Three smoke built both fighters, confirmed staff grip and hand positions coincide (delta 0.0000), rest foot minY 0.012, crouch foot minY 0.019, and aim camera at (-0.68, 1.55, 6.60) for a player at z 2.5 facing the Sensei. Browser visual/device pass still required.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (feet, staff grip and over-the-shoulder aim)
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (weapons/wilderness slice)
+
+**Scope:** owner asked for expanded unarmed combat (punch, kick, grab), a traversable wilderness
+route to the first tower with enemies, D-pad left/right weapon cycling, more weapons including a
+katana, and a temporary test Cipher Sleeve. Preserve the training/tutorial/spar loop, first-to-three
+knockdowns, no-death recovery, save/menu systems and the deferred touch-button layout.
+
+**Files:** `src/weapons.js` (new), `src/game.js`, `src/characters.js`, `src/combat.js`,
+`src/scenery.js`, `src/world.js`, `src/config.js`, `src/hud.js`, `src/main.js`, `src/bindings.js`,
+`src/input.js`, `index.html`, `src/styles.css`, `tests/game.test.mjs`, `tests/systems.test.mjs`, `README.md`,
+`docs/architecture.md`, `docs/memory/02-gameplay.md`, `docs/roadmap.md`, `docs/canon-guardrails.md`.
+
+**Weapons and unarmed**
+
+- Added loadout order `staff → katana → unarmed → cipher`; D-pad left/right, keyboard `[`/`]` and
+  touch `SWAP` cycle it. Staff still reads dynamic `CONFIG` stats, so existing spar tuning remains
+  authoritative. Katana has its own blade stats and right-hand mesh.
+- Unarmed uses one attack button for `punch → kick → grab`. The grab applies a stagger rather than a
+  knockdown. Grab reach was widened and punch/kick knockback reduced so the combo remains usable
+  after the first two hits; the sequence times out back to punch.
+- Added weapon chip, target name, raider radar/map dots and control hints. The spar score hides in
+  the wilderness. The map projection now treats negative z as north/up and widens to cover the
+  wilderness route, so the gate/tower labels and raider dots stay on-screen.
+
+**Wilderness and raiders**
+
+- Opened the north gate and added a broad wilderness route (x ≈ ±31, z −67 to −13.2), worn track,
+  scrub, rocks, dead trees, boundary posts, supply props and a procedural first-tower silhouette.
+  USE/F at the gate transitions to the wilderness; USE/F at the return side goes back to the yard.
+- Added four separate raiders at z −22.5, −33, −45 and −55 (two staff, two katana, 45 HP each) with
+  a shared AI cycle, aggro range and nonlethal knockdowns. They do not award spar points and do not
+  recover after defeat. Reaching `z <= −61` flags the first tower and ends the test slice.
+- Camera focus switches to Ajaye in the wilderness; over-the-shoulder aim remains player-anchored.
+
+**Test-only Cipher Sleeve**
+
+- Added a `CIPHER SLEEVE · TEST` loadout entry with a left-arm-only mesh, visible only while
+  equipped. It is explicitly labelled developer test content in the HUD, gear page and messages.
+  No story acquisition, Cipher capacity, energy or ability was invented. The sleeve HUD meter is
+  hidden except while the test item is equipped.
+
+**Verification:** `npm test` → 58/58; `node --check` clean on modified JS. Local Three smoke (not
+committed) created the full world with four raiders, switched unarmed/katana/test-sleeve feedback,
+exercised wilderness render with a stub renderer and confirmed weapon visibility. No browser or
+device render pass was run for this slice, so camera composition, raider silhouettes, sleeve mesh,
+gate readability and frame rate remain unverified. Touch-button layout tuning remains deferred.
+Character likeness still requires approved reference sheets.
+
+**Preview:** the commit-pinned raw.githack URL is recorded in `README.md` after this push so it
+points at the exact weapons/wilderness build rather than a cached `/main/` module.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)

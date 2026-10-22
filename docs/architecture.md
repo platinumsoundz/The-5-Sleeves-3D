@@ -5,18 +5,21 @@ standard gamepad and touch into named actions plus an analog move vector and rig
 nothing downstream reads raw device codes or touch coordinates. Bindings are sanitized in
 `bindings.js`, and remapping swaps displaced keys/buttons so no action silently loses its input.
 Pure deadzone/joystick math lives in `controls.js` so it can be tested without a browser.
-`world.js` owns the Three.js scene, orbit camera, fixed over-the-shoulder aim view and viewport. `scenery.js` builds the
-procedural settlement set dressing and ambient animation; `characters.js` builds the Ajaye and
-Sensei silhouettes with articulated hip/knee and shoulder/elbow pivots. `game.js` orchestrates screens, tutorial, movement, strikes, rounds,
-saves and match end, and is the only class the browser entry point touches.
+`world.js` owns the Three.js scene, training/wilderness camera zones, orbit camera, fixed
+over-the-shoulder aim view and viewport. `scenery.js` builds the procedural settlement, the
+wilderness track and the first-tower silhouette; `characters.js` builds the Ajaye, Sensei and
+raider silhouettes with articulated hip/knee and shoulder/elbow pivots. `game.js` orchestrates
+screens, tutorial, movement, weapon selection, strikes, gate/zone transitions, rounds, saves and
+match end, and is the only class the browser entry point touches.
 
 Rules are split so they cannot drift apart and can be tested without a renderer:
 
 | Module | Responsibility |
 | --- | --- |
 | `fighter.js` | nonlethal HP, knockdown, auto-recovery and confirm-to-rise |
-| `combat.js` | attack cooldown, swing arc, dodge window and direction |
-| `ai.js` | Sensei decisions: approach, wind-up, strike, recover |
+| `combat.js` | per-weapon attack cooldown, swing/attack progress, dodge window and direction |
+| `weapons.js` | loadout order, katana/unarmed/test-sleeve stats, dynamic staff stats |
+| `ai.js` | Sensei/raider decisions: approach, wind-up, strike, recover |
 | `match.js` | knockdown points, winner, first to `CONFIG.pointsToWin` |
 | `events.js` | synchronous pub/sub between gameplay and presentation |
 | `hud.js` | gameplay HUD DOM writes; receives elements, never queries them |
@@ -33,9 +36,12 @@ Rules are split so they cannot drift apart and can be tested without a renderer:
 `scenery.js` and `characters.js` import Three.js and are browser-only presentation modules:
 `world.js` composes them and never reads gameplay rules from them. They share low-poly geometry,
 cached materials and a canvas-texture ground/sky; no shadow maps or post-processing is used.
-The training scene is the pre-Cipher settlement: Ajaye has wrapped forearms and no Sleeve, the
-sleeve HUD meter is hidden, and the set dressing is generic repaired infrastructure, not story
-locations or named props.
+The training scene is the pre-Cipher settlement: Ajaye has wrapped forearms and no story-acquired
+Sleeve, and the set dressing is generic repaired infrastructure, not story locations or named
+props. The temporary `CIPHER SLEEVE · TEST` loadout adds a left-arm-only test mesh and a test HUD
+meter while equipped; it is developer test content, not a story acquisition or a canon ability.
+The wilderness track and first-tower silhouette are prototype presentation for this slice, not a
+claim that the tower, raiders or route are final story locations.
 
 `game.js` passes stub world/input/ui objects in tests, so no module below it may touch
 `document`, `window` or `THREE`. New presentation concerns subscribe to `events` or extend
@@ -47,13 +53,15 @@ guard keeps blocking; three blocked hits inside the window break the guard. All 
 live in `combat.js`, never in the input layer.
 
 Presentation is push-only: `main.js` passes `setFeedback({ senseiWindingUp, playerBlocking,
-aiming, crouching, swing })` to `world.js` each frame, forwards gamepad look and `hit`/`parry`/`block` events,
-and `world.look(dx, dy)` handles mouse/touch drags internally. No render module reads gameplay
-state directly. The frame loop skips updates while the document is hidden, and `index.html` reports
-a load failure if the CDN module never arrives.
+aiming, crouching, swing, weapon, attackMove, attackProgress })` to `world.js` each frame and
+forwards gamepad look plus `hit`/`parry`/`block`/`grab`/`sleeve-pulse` events. `game.js` calls
+`world.setZone('training'|'wilds')` on gate/restart transitions, and `world.look(dx, dy)` handles
+mouse/touch drags internally. No render module reads gameplay state directly. The frame loop
+skips updates while the document is hidden, and `index.html` reports a load failure if the CDN
+module never arrives.
 
 Touch is laid out like a mobile shooter: the joystick owns the bottom-left, the right 45% of the
-canvas is the look area, and the right cluster holds aim/attack/jump/guard/crouch/sprint/use.
+canvas is the look area, and the right cluster holds aim/attack/jump/guard/crouch/sprint/use/swap.
 Holding aim switches the camera to a player-anchored over-the-shoulder view and reveals `#fire` under the left thumb. `Hud.sync` is what toggles those elements;
 `input.js` only reads the DOM nodes for the stick and buttons. Because a held button can disappear
 (MENU pauses, STAFF hides while aiming), pointer releases are also caught on `window` so an action
@@ -71,16 +79,20 @@ passes them to `world.setSettings`/`setQuality`, and reflects the controls. `sav
 tutorial completion plus dev-granted XP/cash/permissions under a separate key; `bindings.js`
 persists remaps under another. Deleting the save never deletes controls or settings.
 
-One opponent is supported. Sensei is passive during the tutorial. Both fighters can be knocked
-down; a downed player must confirm before the next round starts, while Sensei recovers on his own.
-XP/money progression, inventory/skill content and Cipher powers remain deferred, with extension
-points preserved. Dev codes may write placeholder XP/cash/permissions, but nothing consumes them
-in combat. Cipher abilities must sit behind a future ability interface, and Ajaye's Sleeve stays
-left-arm-only if shown. The Cipher Sleeve is not acquired in the opening training scene, so no
-sleeve capacity is modelled and the sleeve HUD meter stays hidden until an acquisition system
-exists. The owner has browser-tested the pre-visual build on the S23+ at 120 FPS with no reported
-errors; the new settlement/character visual pass still needs its own browser check. Touch-button
-size, placement and feel remain deferred at the owner's request.
+The training yard has one sparring opponent, Sensei. Sensei is passive during the tutorial. Both
+fighters can be knocked down; a downed player must confirm before the next round starts, while
+Sensei recovers on his own. The wilderness uses separate raider encounters with their own AI and
+HP; their knockdowns do not award spar points. Raiders do not currently recover after a defeat.
+The north gate requires USE/F rather than walking through the fence; the training bounds stop the
+player short of it. XP/money progression, inventory/skill content and Cipher powers remain
+deferred, with extension points preserved. Dev codes may write placeholder XP/cash/permissions,
+but nothing consumes them in combat. Cipher abilities must sit behind a future ability interface,
+and Ajaye's Sleeve stays left-arm-only if shown. The opening training scene has no story-acquired
+Cipher Sleeve, so no capacity is modelled. The test-only sleeve mesh is presentation for the
+loadout cycle; the sleeve HUD meter only appears while it is equipped. The owner has
+browser-tested the settlement/character visual build on the S23+ with no reported frame drops;
+the weapon/wilderness/raider pass still needs its own browser/device check. Touch-button size,
+placement and feel remain deferred at the owner's request.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 
@@ -91,3 +103,5 @@ size, placement and feel remain deferred at the owner's request.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice; test-only sleeve)

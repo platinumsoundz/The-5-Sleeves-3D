@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Normalizes every device into named actions plus an analog move vector, so gameplay never
 // checks raw keys, button numbers or touch coordinates.
 import { CONFIG } from './config.js';
@@ -260,15 +261,15 @@ export class Input {
       return 'GET UP: Enter / Space';
     }
     if (this.device === 'touch') {
-      return 'Left stick move · drag right to look · AIM then FIRE · MENU top centre';
+      return 'Left stick move · SWAP weapon · drag right to look · AIM then FIRE · MENU top centre';
     }
     if (this.device === 'gamepad') {
       const ps = this.padType().includes('PLAYSTATION');
       return ps
-        ? 'Left stick move · right stick look · L2 aim · R2 staff · Circle guard · Start menu · Select map'
-        : 'Left stick move · right stick look · LT aim · RT staff · B guard · Start menu · Select map';
+        ? 'Left stick move · right stick look · D-pad ← → weapon · L2 aim · R2 attack · Circle guard · Start menu · Select map'
+        : 'Left stick move · right stick look · D-pad ← → weapon · LT aim · RT attack · B guard · Start menu · Select map';
     }
-    return 'WASD move · LMB staff · RMB aim · Space jump · Shift sprint · Ctrl crouch · Q guard · F interact · Tab map · Esc menu';
+    return 'WASD move · LMB attack · [ ] weapon · RMB aim · Space jump · Shift sprint · Ctrl crouch · Q guard · F interact · Tab map · Esc menu';
   }
 
   isDown(action) { return this.held.has(action); }

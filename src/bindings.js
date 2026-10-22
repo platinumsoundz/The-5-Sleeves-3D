@@ -1,18 +1,21 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Remappable keyboard and controller bindings. Movement sticks stay fixed (left move, right
 // look); every button/action here can be rebound. Pure + storage-injected for tests.
 export const BINDINGS_KEY = 'five-sleeves.bindings.v1';
 
 export const BINDING_ACTIONS = [
   'forward', 'back', 'left', 'right', 'attack', 'jump', 'guard', 'sprint',
-  'aim', 'crouch', 'interact', 'confirm', 'menu', 'map'
+  'aim', 'crouch', 'interact', 'confirm', 'menu', 'map',
+  'weaponPrev', 'weaponNext'
 ];
 
 export const ACTION_LABELS = {
   forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right',
-  attack: 'Staff attack', jump: 'Jump / get up', guard: 'Guard / dodge / parry',
+  attack: 'Attack / unarmed combo', jump: 'Jump / get up', guard: 'Guard / dodge / parry',
   sprint: 'Sprint', aim: 'Aim / lock (mouse on PC)', crouch: 'Crouch',
-  interact: 'Interact / use', confirm: 'Confirm', menu: 'Menu / pause', map: 'Map'
+  interact: 'Interact / use', confirm: 'Confirm', menu: 'Menu / pause', map: 'Map',
+  weaponPrev: 'Previous weapon', weaponNext: 'Next weapon'
 };
 
 export const DEFAULT_KEYBOARD = Object.freeze({
@@ -21,13 +24,15 @@ export const DEFAULT_KEYBOARD = Object.freeze({
   attack: ['KeyJ'], jump: ['Space'], guard: ['KeyQ', 'KeyK'],
   sprint: ['ShiftLeft', 'ShiftRight'], aim: [],
   crouch: ['ControlLeft', 'ControlRight'], interact: ['KeyF'],
-  confirm: ['Enter'], menu: ['Escape'], map: ['Tab', 'KeyM']
+  confirm: ['Enter'], menu: ['Escape'], map: ['Tab', 'KeyM'],
+  weaponPrev: ['BracketLeft'], weaponNext: ['BracketRight']
 });
 
 export const DEFAULT_GAMEPAD = Object.freeze({
   forward: [], back: [], left: [], right: [],
   attack: [7], jump: [0], guard: [1], sprint: [10], aim: [6],
-  crouch: [11], interact: [2], confirm: [3], menu: [9], map: [8]
+  crouch: [11], interact: [2], confirm: [3], menu: [9], map: [8],
+  weaponPrev: [14], weaponNext: [15]
 });
 
 const isKey = value => typeof value === 'string' && value.length > 0 && value.length <= 24;

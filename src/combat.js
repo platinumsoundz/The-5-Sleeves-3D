@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
-// Per-fighter timing: staff cooldown, swing animation phase and the dodge window.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// Per-fighter timing: per-weapon cooldown, swing/attack animation phase and the dodge window.
 // Movement and hit resolution stay in game.js; this only answers "may I act yet?".
 import { CONFIG } from './config.js';
 
@@ -16,6 +17,7 @@ export class CombatState {
     this.blockedHits = 0;
     this.blockedTimer = 0;
     this.guardStun = 0;
+    this.attackDuration = CONFIG.attackAnimTime;
   }
 
   tick(dt) {
@@ -57,9 +59,10 @@ export class CombatState {
     return true;
   }
 
-  beginAttack() {
-    this.attackTimer = CONFIG.attackCooldown;
-    this.attackAnim = CONFIG.attackAnimTime;
+  beginAttack({ cooldown = CONFIG.attackCooldown, duration = CONFIG.attackAnimTime } = {}) {
+    this.attackTimer = cooldown;
+    this.attackAnim = duration;
+    this.attackDuration = duration;
   }
 
   beginDodge(dx, dz, facing) {
@@ -71,9 +74,15 @@ export class CombatState {
     this.dodgeDir = { x: x / length, z: z / length };
   }
 
-  // 0 → 1 → 0 arc used to swing the staff mesh.
+  // 0 → 1 through the current strike; world.js uses it to pose the active weapon or limb.
+  get attackProgress() {
+    if (this.attackAnim <= 0 || this.attackDuration <= 0) return 0;
+    return Math.max(0, Math.min(1, 1 - this.attackAnim / this.attackDuration));
+  }
+
+  // 0 → 1 → 0 arc used to swing the staff/katana mesh.
   get swingAngle() {
     if (this.attackAnim <= 0) return 0;
-    return Math.sin((this.attackAnim / CONFIG.attackAnimTime) * Math.PI) * 1.4;
+    return Math.sin((this.attackAnim / (this.attackDuration || CONFIG.attackAnimTime)) * Math.PI) * 1.4;
   }
 }

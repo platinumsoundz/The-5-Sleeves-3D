@@ -27,3 +27,7 @@ Shell, saves, remapping and HUD (owner instruction, provisional implementation):
 2026-10-22 — Owner: the browser build works on the S23+, runs smoothly at a reported 120 FPS and has no issues other than the touch-button layout, which is explicitly deferred. The Cipher Sleeve is not acquired in the opening training scene, so its HUD meter is hidden and no sleeve capacity is modelled until an acquisition system exists. Finish the visual/character/scenery pass next: generic settlement set dressing, Ajaye and Sensei whitebox silhouettes, no Cipher Sleeve, no Korb/Cipher/tower story content. Owner reference sheets are still needed before claiming final likeness; the new visual pass needs its own browser check.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
+
+2026-10-22 — Owner: expand the prototype with a punch/kick/grab unarmed combo, a traversable wilderness route to the first tower with enemies, D-pad left/right weapon cycling, more weapons including a katana, and a temporary test Cipher Sleeve. Preserve training/tutorial/spar, first-to-three knockdowns, no deaths, and save/menu behavior; touch-button layout tuning remains deferred. The Sleeve is test-only arsenal content, labelled TEST, and must not be presented as canon acquisition or used to invent Cipher abilities.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice decision)

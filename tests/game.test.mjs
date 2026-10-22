@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Headless checks for every rules module plus the Game wiring. No renderer and no DOM: world,
 // input and UI are stubs. Visual layout, camera, touch and gamepad still need the device pass
 // described in docs/memory/03-technical.md.
@@ -80,8 +81,7 @@ function makeInput() {
   };
 }
 
-function makeGame() {
-  const world = makeWorld();
+function makeGame(world = makeWorld()) {
   const ui = makeUi();
   const input = makeInput();
   return { game: new Game(world, input, ui), world, ui, input };
@@ -667,6 +667,109 @@ test('a long seeded spar stays in bounds and reaches a result', () => withAccura
   assert.ok(ended, 'a spar should finish within the simulation budget');
   assert.ok(game.match.player >= CONFIG.pointsToWin || game.match.sensei >= CONFIG.pointsToWin);
 }));
+
+
+// --- Game: weapons, wilderness and raiders -----------------------------------------------
+
+function enemyFixture(id, x, z, weapon = 'staff') {
+  const root = fighter(z);
+  root.position.x = x;
+  return {
+    id,
+    name: id.toUpperCase(),
+    root,
+    parts: { stick: { rotation: new Vec3() }, katana: { rotation: new Vec3() } },
+    weapon,
+    home: { x, z }
+  };
+}
+
+test('D-pad weapon actions cycle staff, katana, unarmed and the test sleeve', () => {
+  const { game, input } = makeGame();
+  const seen = [game.weapon];
+  for (let i = 0; i < 3; i++) {
+    input.press('weaponNext');
+    step(game);
+    seen.push(game.weapon);
+  }
+  assert.deepEqual(seen, ['staff', 'katana', 'unarmed', 'cipher']);
+  assert.match(game.message, /TEST/);
+  input.press('weaponNext');
+  step(game);
+  assert.equal(game.weapon, 'staff', 'the arsenal wraps back to staff');
+  input.press('weaponPrev');
+  step(game);
+  assert.equal(game.weapon, 'cipher', 'D-pad left walks the list backwards');
+});
+
+test('unarmed attack is a punch → kick → grab combo with a staggering grab', () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  game.switchWeapon(1);
+  game.switchWeapon(1);
+  assert.equal(game.weapon, 'unarmed');
+  world.player.position.set(0, 0, -1.4);
+
+  input.press('attack'); step(game);
+  assert.equal(game.attackMove, 'punch');
+  assert.equal(game.sensei.hp, 93);
+  step(game, frames(.3));
+
+  input.press('attack'); step(game);
+  assert.equal(game.attackMove, 'kick');
+  assert.equal(game.sensei.hp, 83);
+  step(game, frames(.45));
+
+  input.press('attack'); step(game);
+  assert.equal(game.attackMove, 'grab');
+  assert.equal(game.sensei.hp, 79);
+  assert.equal(game.ai.state, 'stagger', 'grab should stagger instead of knocking down');
+  assert.equal(game.unarmedStep, 2, 'the third move completes the combo');
+});
+
+test('the north gate requires USE and moves the player into the wilderness', () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  world.player.position.set(0, 0, -9.8);
+  assert.equal(game.nearGate(), true);
+
+  input.press('interact'); step(game);
+  assert.equal(game.zone, 'wilds');
+  assert.ok(world.player.position.z < CONFIG.wildMaxZ);
+
+  world.player.position.set(0, 0, -13.4);
+  input.press('interact'); step(game);
+  assert.equal(game.zone, 'training');
+  assert.equal(world.player.position.z, -9.9);
+});
+
+test('reaching the first tower flags the end of the wilderness test slice', () => {
+  const { game, world, input } = makeGame();
+  game.finishTutorial();
+  game.zone = 'wilds';
+  world.player.position.set(0, 0, CONFIG.wildTowerZ - .5);
+  step(game);
+  assert.equal(game.towerReached, true);
+  assert.match(game.message, /first tower/i);
+});
+
+test('wilderness attacks target and knock down raiders without scoring the spar', () => {
+  const world = makeWorld();
+  world.enemies = [enemyFixture('raider-1', 0, -21)];
+  world.setZone = function setZone(value) { this.zone = value; };
+  const { game, input } = makeGame(world);
+  game.finishTutorial();
+  game.zone = 'wilds';
+  world.player.position.set(0, 0, -20);
+  game.encounters[0].state.hp = CONFIG.damage;
+
+  input.press('attack');
+  step(game);
+
+  assert.equal(game.encounters[0].defeated, true);
+  assert.ok(Math.abs(world.enemies[0].root.rotation.z - Math.PI / 2) < 1e-9);
+  assert.equal(game.match.player, 0, 'wilderness knockdowns do not award spar points');
+});
 
 function seeded(seed) {
   let state = seed >>> 0;

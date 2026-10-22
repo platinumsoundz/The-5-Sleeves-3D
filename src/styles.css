@@ -2,6 +2,7 @@
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) */
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass) */
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (stable menu tabs) */
+/* ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice) */
 :root {
   --ink: #e9ece5;
   --muted: #a7b1a7;
@@ -94,6 +95,7 @@ h3 {
 }
 .radar-dot.player { background: var(--gold); box-shadow: 0 0 7px #c9a46c; }
 .radar-dot.sensei { background: #e07b5b; box-shadow: 0 0 7px #e07b5b; }
+.radar-dot.raider { background: #e7a45f; box-shadow: 0 0 7px #e7a45f; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
 .radar-dot.off { opacity: .55; }
 #feed {
   position: absolute; top: calc(182px + env(safe-area-inset-top));
@@ -118,6 +120,15 @@ h3 {
   transform: translateX(-50%); pointer-events: auto;
   padding: 9px 13px; background: #101815dd;
 }
+#weapon {
+  position: absolute; top: calc(60px + env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%); padding: 4px 9px;
+  border: 1px solid #6cc7c266; border-radius: 2px;
+  background: #0b1512b8; color: #b9e8e3;
+  font: 800 8px/1 system-ui, sans-serif; letter-spacing: .16em; white-space: nowrap;
+}
+#weapon.test { color: #ffd59a; border-color: #e7a45f88; }
+#weapon.unarmed { color: #ecd7ab; border-color: #c9a46c66; }
 #score {
   position: absolute; top: calc(44px + env(safe-area-inset-top)); left: 50%;
   transform: translateX(-50%);
@@ -212,6 +223,7 @@ h3 {
 .action-pad .sprint { grid-area: 1 / 2; }
 .action-pad .interact { grid-area: 3 / 1; }
 .action-pad .confirm { grid-area: 3 / 2; }
+.action-pad .weapon { grid-area: 2 / 1; border-color: #6cc7c2; color: #b9e8e3; font-size: 8px; }
 #fire {
   position: absolute; left: calc(28px + env(safe-area-inset-left)); bottom: calc(188px + env(safe-area-inset-bottom));
   width: 76px; height: 76px; border-radius: 50%; pointer-events: auto;
@@ -350,11 +362,13 @@ h3 {
 }
 .mapdot.player { background: var(--gold); color: var(--gold); }
 .mapdot.sensei { background: #e07b5b; color: #e07b5b; }
+.mapdot.raider { background: #e7a45f; color: #e7a45f; width: 7px; height: 7px; }
 .map-label {
   position: absolute; font-size: 8px; letter-spacing: .18em; color: #ffffff59;
 }
 .map-label.north { top: 8px; left: 50%; transform: translateX(-50%); }
 .map-label.south { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.map-label.mid { top: 38%; left: 50%; transform: translateX(-50%); color: #e7a45f99; }
 #map-screen { gap: 8px; justify-content: center; }
 #map-screen .menu-head { width: 100%; border: 1px solid #c9a46c44; background: #0b1310cc; border-radius: 4px; }
 #map-screen .map-square { width: min(62vmin, 430px); }
@@ -391,6 +405,7 @@ output { color: var(--gold-soft); font-size: 10px; margin-left: 6px; }
   .status { width: 104px; }
   #device { font-size: 8px; }
   #score { font-size: 8px; top: calc(38px + env(safe-area-inset-top)); }
+  #weapon { top: calc(52px + env(safe-area-inset-top)); font-size: 7px; padding: 3px 6px; }
   #pause { padding: 7px 8px; font-size: 8px; }
   #message { top: 21%; font-size: 11px; }
   #prompt { bottom: calc(250px + env(safe-area-inset-bottom)); font-size: 11px; }

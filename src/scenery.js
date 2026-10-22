@@ -1,7 +1,9 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
-// Procedural settlement set dressing for the pre-Cipher training ground. Everything is built
-// from low-poly primitives, shared materials and canvas textures so the scene stays cheap on a
-// phone. Presentation only: no collisions, story triggers or gameplay state live here.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// Procedural settlement training yard plus the wilderness track and first-tower silhouette.
+// Everything is built from low-poly primitives, shared materials and canvas textures so the
+// scene stays cheap on a phone. Presentation only: no collisions, story triggers or gameplay
+// state live here.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const C = {
@@ -148,7 +150,7 @@ function addSky(scene) {
   }, 128);
   texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
   const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(72, 24, 14),
+    new THREE.SphereGeometry(150, 24, 14),
     new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: false })
   );
   sky.renderOrder = -20;
@@ -172,9 +174,11 @@ function addHills(scene) {
 
 function addGround(scene) {
   const texture = groundTexture();
-  texture.repeat.set(18, 18);
+  // The ground and sky must cover the wilderness route past the first tower at z -63,
+  // not just the original training-yard footprint.
+  texture.repeat.set(27, 27);
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(120, 120),
+    new THREE.PlaneGeometry(180, 180),
     new THREE.MeshStandardMaterial({ map: texture, color: 0xffffff, roughness: 1, metalness: 0 })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -269,7 +273,7 @@ function addGate(scene) {
   }
 
   for (const side of [-1, 1]) {
-    const hinge = group(gate, side * 2.38, 0, .08, side * .53);
+    const hinge = group(gate, side * 2.38, 0, .08, side * 1.18);
     box(hinge, 2.05, 1.12, .07, mat(C.wood), side * 1.04, .7, 0);
     box(hinge, .07, 1.12, .09, mat(C.woodDark), side * .08, .7, 0);
     const brace = box(hinge, 2.0, .06, .09, mat(C.woodDark), side * 1.04, .7, 0);
@@ -575,6 +579,106 @@ function addDistantStructure(scene) {
   }
 }
 
+function addWilderness(scene) {
+  const random = rng(77421);
+  const pathMat = mat(C.path, { flatShading: false });
+  const earthMat = mat(C.earth, { flatShading: false });
+
+  // Worn track running from the training gate toward the first tower.
+  for (let z = -12.2; z > -66; z -= 3.2) {
+    const width = 2.6 + random() * 1.2;
+    const segment = box(scene, width, .018, 3.5, pathMat, Math.sin(z * .07) * 1.15, .014, z, 0, random() * .08 - .04, 0);
+    segment.rotation.y += (random() - .5) * .06;
+  }
+
+  // Open scrub and disturbed earth around the route.
+  for (let i = 0; i < 28; i++) {
+    const x = (random() - .5) * 56;
+    const z = -16 - random() * 46;
+    if (Math.abs(x) < 5 && z > -20) continue;
+    const patch = new THREE.Mesh(
+      new THREE.CircleGeometry(.5 + random() * 2.6, 10),
+      mat(random() > .5 ? 0x666c57 : 0x7d7058, { flatShading: false })
+    );
+    patch.rotation.x = -Math.PI / 2;
+    patch.position.set(x, .013, z);
+    patch.scale.y = .55 + random() * .5;
+    scene.add(patch);
+  }
+
+  // Broken boundary posts and rocks frame the open area without blocking the path.
+  for (let i = 0; i < 18; i++) {
+    const side = i % 2 ? -1 : 1;
+    const z = -17 - i * 2.8;
+    const x = side * (7.5 + random() * 15);
+    const post = cylinder(scene, .04, .07, .55 + random() * .8, 5, mat(C.woodDark), x, .28, z);
+    post.rotation.z = (random() - .5) * .35;
+  }
+  for (let i = 0; i < 22; i++) {
+    const x = (random() - .5) * 54;
+    const z = -18 - random() * 43;
+    const rock = mesh(new THREE.DodecahedronGeometry(.35 + random() * 1.4, 0), mat(random() > .4 ? 0x5e645b : 0x77705f));
+    rock.position.set(x, -.02, z);
+    rock.scale.set(1 + random(), .55 + random() * .45, .8 + random() * .8);
+    rock.rotation.set(random(), random() * Math.PI, random());
+    scene.add(rock);
+  }
+
+  // Sparse dead trees keep sightlines open.
+  for (let i = 0; i < 14; i++) {
+    const side = i % 2 ? -1 : 1;
+    const x = side * (9 + random() * 18);
+    const z = -17 - random() * 44;
+    const tree = group(scene, x, 0, z, random() * Math.PI);
+    cylinder(tree, .08, .14, 1.9 + random() * 1.4, 5, mat(C.woodDark), 0, .95, 0);
+    for (let b = 0; b < 3; b++) {
+      const branch = box(tree, .05, .75, .05, mat(C.woodDark), (random() - .5) * .9, 1.5 + random() * .7, (random() - .5) * .5);
+      branch.rotation.z = (random() - .5) * 1.1;
+    }
+  }
+
+  // First tower silhouette: a practical relay/guard structure, not a fantasy spire.
+  const tower = group(scene, 0, 0, -63);
+  for (const x of [-2.2, 2.2]) {
+    for (const z of [-2.2, 2.2]) cylinder(tower, .18, .28, 11.5, 6, mat(C.metalDark), x, 5.75, z);
+  }
+  for (const y of [3.4, 6.7, 9.8]) {
+    box(tower, 5.1, .12, .12, mat(C.metalDark), 0, y, -2.2);
+    box(tower, .12, .12, 5.1, mat(C.metalDark), -2.2, y, 0);
+    box(tower, 5.1, .12, .12, mat(C.metalDark), 0, y, 2.2);
+  }
+  box(tower, 6.8, .18, 6.8, mat(C.metal), 0, 11.35, 0);
+  box(tower, 5.6, .85, 5.6, mat(C.oliveDark), 0, 11.9, 0);
+  const beaconMat = mat(0x6de6dd, { emissive: 0x2fa7a5, emissiveIntensity: 2.2, flatShading: false });
+  cylinder(tower, .55, .72, 1.0, 8, mat(C.metalDark), 0, 12.8, 0);
+  const beacon = sphere(tower, .22, beaconMat, 0, 13.45, 0, 7);
+  for (let i = 0; i < 4; i++) {
+    const angle = i * Math.PI / 2;
+    box(tower, .1, 1.8, .1, mat(C.metalDark), Math.sin(angle) * 2.8, 12.05, Math.cos(angle) * 2.8);
+  }
+  box(tower, 1.2, 2.5, .1, mat(C.metalDark), 0, 1.25, -2.25);
+  box(tower, .7, 1.1, .05, mat(C.window), 0, 1.8, -2.31);
+
+  // A visible end-of-slice marker and a small supply cache at the tower.
+  box(scene, 4.2, .02, 3.8, earthMat, 0, .012, -59.2);
+  crate(scene, -2.6, -59.8, .55, .2);
+  crate(scene, 2.3, -59.2, .45, -.3);
+  barrel(scene, 2.9, -60.2, .8);
+
+  return {
+    tower: { x: 0, z: -63 },
+    enemySpawns: [
+      { id: 'raider-1', x: -5.5, z: -22.5, weapon: 'staff', name: 'RAIDER · SCAVENGER' },
+      { id: 'raider-2', x: 6.5, z: -33, weapon: 'katana', name: 'RAIDER · BLADE' },
+      { id: 'raider-3', x: -8.5, z: -45, weapon: 'staff', name: 'RAIDER · LOOKOUT' },
+      { id: 'raider-4', x: 5.5, z: -55, weapon: 'katana', name: 'RAIDER · GATEKEEPER' }
+    ],
+    update(now) {
+      beacon.scale.setScalar(1 + Math.sin(now * .003) * .12);
+    }
+  };
+}
+
 function addDust(scene) {
   const random = rng(991);
   const positions = new Float32Array(90 * 3);
@@ -702,4 +806,10 @@ export function buildTrainingGround(scene) {
       if (lamp) lamp.intensity = 8.6 + Math.sin(time * 2.2) * .5;
     }
   };
+}
+
+export function buildWilderness(scene) {
+  const wilderness = addWilderness(scene);
+  batchStatic(scene);
+  return wilderness;
 }

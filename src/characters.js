@@ -2,9 +2,11 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs)
 
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (planted feet and hand-mounted staff)
-// Low-poly character whitebox for Ajaye and Sensei. Silhouette and clothing first; faces stay
-// deliberately simple until approved reference sheets arrive. Ajaye has no Cipher Sleeve here:
-// this is the pre-discovery training scene. Presentation only — no gameplay state lives here.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// Low-poly character whitebox for Ajaye, Sensei and wilderness raiders. Silhouette and clothing
+// first; faces stay deliberately simple until approved reference sheets arrive. There is no canon
+// Cipher Sleeve here: the visible sleeve is a test-only loadout mesh, on the left arm only.
+// Presentation only — no gameplay state lives here.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const C = {
@@ -59,15 +61,16 @@ function sphere(radius, material, x = 0, y = 0, z = 0, detail = 10) {
 
 // A whole fighter is built from a small, shared vocabulary of shapes. `body` remains the torso
 // for the old tint contract; `setTint` paints every material so hit flashes read on the silhouette.
-export function createFighter(kind = 'ajaye') {
+export function createFighter(kind = 'ajaye', { weapon = 'staff' } = {}) {
   const sensei = kind === 'sensei';
+  const raider = kind === 'raider';
   const mats = {
-    skin: standard(sensei ? C.senseiSkin : C.ajayeSkin, { roughness: .82, flatShading: false }),
-    hair: standard(sensei ? C.senseiHair : C.ajayeHair, { roughness: .96 }),
-    hairHi: standard(sensei ? C.senseiHairHi : C.ajayeHairHi, { roughness: .96 }),
-    cloth: standard(sensei ? C.olive : C.charcoal, { roughness: .95 }),
-    cloth2: standard(sensei ? C.charcoal : C.charcoalLight, { roughness: .95 }),
-    cloth3: standard(sensei ? C.rust : C.olive, { roughness: .95 }),
+    skin: standard(sensei ? C.senseiSkin : raider ? 0xb88968 : C.ajayeSkin, { roughness: .82, flatShading: false }),
+    hair: standard(sensei ? C.senseiHair : raider ? 0x2b2923 : C.ajayeHair, { roughness: .96 }),
+    hairHi: standard(sensei ? C.senseiHairHi : raider ? 0x4b4038 : C.ajayeHairHi, { roughness: .96 }),
+    cloth: standard(sensei ? C.olive : raider ? 0x3d3b33 : C.charcoal, { roughness: .95 }),
+    cloth2: standard(sensei ? C.charcoal : raider ? 0x5b4b3b : C.charcoalLight, { roughness: .95 }),
+    cloth3: standard(sensei ? C.rust : raider ? 0x754638 : C.olive, { roughness: .95 }),
     leather: standard(C.leather),
     boot: standard(C.boot),
     wrap: standard(C.wrap, { roughness: 1 }),
@@ -102,7 +105,7 @@ export function createFighter(kind = 'ajaye') {
     knee.add(box(.19, .04, .31, mats.boot, 0, -.475, .045));
     knee.add(box(.17, .13, .25, mats.boot, 0, -.4, .045));
     knee.add(box(.12, .12, .04, mats.leather, 0, -.28, -.16));
-    if (!sensei && side === 1) {
+    if (!sensei && !raider && side === 1) {
       const patch = box(.13, .16, .025, mats.cloth3, 0, -.2, .105);
       patch.rotation.z = .12;
       hip.add(patch);
@@ -132,6 +135,10 @@ export function createFighter(kind = 'ajaye') {
     upper.add(box(.18, .4, .035, mats.cloth2, -.13, .31, .225));
     upper.add(box(.18, .4, .035, mats.cloth2, .13, .31, .225));
     upper.add(box(.42, .09, .08, mats.leather, 0, .49, .23));
+  } else if (raider) {
+    upper.add(box(.16, .24, .035, mats.cloth2, -.13, .35, .225));
+    upper.add(box(.16, .24, .035, mats.cloth2, .13, .35, .225));
+    upper.add(box(.08, .5, .025, mats.leather, .12, .3, .242));
   } else {
     upper.add(box(.16, .24, .035, mats.cloth2, -.13, .35, .225));
     upper.add(box(.16, .24, .035, mats.cloth2, .13, .35, .225));
@@ -175,7 +182,7 @@ export function createFighter(kind = 'ajaye') {
   leftArm.group.rotation.x = -.12;
 
   // Scarf/collar and belt details.
-  if (!sensei) {
+  if (!sensei && !raider) {
     const scarf = mesh(new THREE.TorusGeometry(.15, .052, 5, 12), mats.cloth2, 0, .585, 0);
     scarf.rotation.x = Math.PI / 2;
     upper.add(scarf);
@@ -183,7 +190,7 @@ export function createFighter(kind = 'ajaye') {
     tail.rotation.z = .18;
     upper.add(tail);
     upper.add(box(.12, .035, .025, mats.cloth3, -.16, .43, .23));
-  } else {
+  } else if (sensei) {
     upper.add(box(.31, .08, .12, mats.cloth3, 0, .58, .055));
     upper.add(box(.14, .05, .06, mats.leather, -.2, .56, .13));
   }
@@ -262,6 +269,29 @@ export function createFighter(kind = 'ajaye') {
   stick.add(sphere(.05, mats.woodDark, 0, 1.57, 0, 6));
   stick.rotation.x = Math.PI / 2;
 
+  // Katana shares the hand mount. The blade runs along local +Y before the mount's ready tilt.
+  const katana = new THREE.Group();
+  staffMount.add(katana);
+  katana.add(box(.06, 1.32, .022, mats.metal, 0, .72, 0));
+  katana.add(box(.25, .035, .055, mats.metal, 0, .055, 0));
+  katana.add(box(.065, .34, .065, mats.leather, 0, -.17, 0));
+  katana.add(sphere(.045, mats.metal, 0, -.35, 0, 6));
+  katana.add(box(.03, .1, .03, mats.wrap, 0, .12, 0));
+  katana.rotation.x = Math.PI / 2;
+  katana.visible = false;
+
+  // Test-only left-arm Cipher Sleeve. Story scenes still start without it.
+  const sleeveMaterial = new THREE.MeshStandardMaterial({
+    color: 0x8be9e2, emissive: 0x2c8f91, emissiveIntensity: 1.5,
+    roughness: .35, metalness: .15, flatShading: true
+  });
+  const sleeveGroup = new THREE.Group();
+  sleeveGroup.add(cylinder(.096, .086, .25, 6, sleeveMaterial, 0, -.13, 0));
+  sleeveGroup.add(cylinder(.11, .11, .028, 6, sleeveMaterial, 0, .005, 0));
+  sleeveGroup.add(box(.055, .15, .018, sleeveMaterial, 0, -.13, .09));
+  sleeveGroup.visible = false;
+  leftArm.elbow.add(sleeveGroup);
+
   function setTint(hex, intensity) {
     for (const material of tintMaterials) {
       material.emissive.setHex(hex);
@@ -271,17 +301,75 @@ export function createFighter(kind = 'ajaye') {
 
   // Procedural pose keeps the armour simple while giving the silhouette readable articulation.
   // The staff hand stays stable; the free arm, hips and knees carry the walk/crouch/attack read.
-  function pose({ walk = 0, phase = 0, crouch = 0, swing = 0, guard = false } = {}) {
+  function pose({
+    walk = 0, phase = 0, crouch = 0, swing = 0, guard = false,
+    weapon: poseWeapon = 'staff', attackMove = null, attackProgress = 0
+  } = {}) {
     const c = Math.max(0, Math.min(1, crouch));
     const w = Math.max(0, Math.min(1.5, walk));
     const gait = Math.sin(phase) * .55 * w;
-    rightLeg.hip.rotation.x = -c * 1.1 - gait;
-    leftLeg.hip.rotation.x = -c * 1.1 + gait;
-    rightLeg.knee.rotation.x = c * 2.1 + Math.max(0, -gait) * .65;
-    leftLeg.knee.rotation.x = c * 2.1 + Math.max(0, gait) * .65;
+    const arc = Math.sin(Math.max(0, Math.min(1, attackProgress)) * Math.PI);
+    const armed = poseWeapon === 'staff' || poseWeapon === 'katana';
+    const unarmed = poseWeapon === 'unarmed';
+    const sleeve = poseWeapon === 'cipher';
 
-    leftArm.group.rotation.x = -.12 - gait * .56 - c * .22 + swing * .3 - (guard ? .48 : 0);
-    leftArm.elbow.rotation.x = -.12 - Math.max(0, gait) * .45 - c * .38 - swing * .28 - (guard ? .5 : 0);
+    let rightHip = -c * 1.1 - gait;
+    let leftHip = -c * 1.1 + gait;
+    let rightKnee = c * 2.1 + Math.max(0, -gait) * .65;
+    let leftKnee = c * 2.1 + Math.max(0, gait) * .65;
+    if (unarmed && attackMove === 'kick') {
+      rightHip -= arc * 1.18;
+      rightKnee += arc * .2;
+    }
+    rightLeg.hip.rotation.x = rightHip;
+    leftLeg.hip.rotation.x = leftHip;
+    rightLeg.knee.rotation.x = rightKnee;
+    leftLeg.knee.rotation.x = leftKnee;
+
+    let lShoulder = -.12 - gait * .56 - c * .22;
+    let lElbow = -.12 - Math.max(0, gait) * .45 - c * .38;
+    let rShoulder = armed ? -1.5 : -.16;
+    let rElbow = armed ? -.5 : -.28;
+
+    if (armed) {
+      lShoulder += swing * .3;
+      lElbow -= swing * .28;
+    } else if (unarmed) {
+      rShoulder -= gait * .22;
+      if (attackMove === 'punch') {
+        rShoulder = -.16 - arc * 1.38;
+        rElbow = -.28 + arc * .23;
+        lShoulder = -.12 + arc * .24;
+        lElbow = -.12 - arc * .52;
+      } else if (attackMove === 'kick') {
+        lShoulder = -.12 + arc * .45;
+        lElbow = -.12 - arc * .4;
+        rShoulder = -.16 + arc * .25;
+      } else if (attackMove === 'grab') {
+        rShoulder = -.16 - arc * 1.24;
+        rElbow = -.28 + arc * .18;
+        lShoulder = -.12 - arc * 1.24;
+        lElbow = -.12 + arc * .18;
+      }
+    } else if (sleeve && attackMove === 'sleeve') {
+      lShoulder = -.12 - arc * 1.45;
+      lElbow = -.12 + arc * .06;
+      rShoulder = -.16 + arc * .2;
+    }
+
+    if (guard) {
+      lShoulder -= unarmed || sleeve ? .54 : .48;
+      lElbow -= unarmed || sleeve ? .55 : .5;
+      if (unarmed || sleeve) {
+        rShoulder -= .48;
+        rElbow -= .5;
+      }
+    }
+
+    leftArm.group.rotation.x = lShoulder;
+    leftArm.elbow.rotation.x = lElbow;
+    rightArm.group.rotation.x = rShoulder;
+    rightArm.elbow.rotation.x = rElbow;
     return -c * .254 + Math.abs(Math.sin(phase * 2)) * .012 * w;
   }
 
@@ -291,14 +379,23 @@ export function createFighter(kind = 'ajaye') {
   batchSection(visual, [upper, leftLeg.hip, rightLeg.hip]);
   batchSection(upper, [leftArm.group, rightArm.group, stick, torso]);
   batchSection(leftArm.group, [leftArm.elbow]);
-  batchSection(leftArm.elbow, []);
+  batchSection(leftArm.elbow, [sleeveGroup]);
+  batchSection(sleeveGroup, []);
   batchSection(rightArm.group, [rightArm.elbow]);
   batchSection(rightArm.elbow, [staffMount]);
   batchSection(stick, []);
+  batchSection(katana, []);
   for (const leg of [leftLeg, rightLeg]) {
     batchSection(leg.hip, [leg.knee]);
     batchSection(leg.knee, []);
   }
+
+  function setWeapon(id) {
+    stick.visible = id === 'staff';
+    katana.visible = id === 'katana';
+    sleeveGroup.visible = id === 'cipher';
+  }
+  setWeapon(weapon);
 
   return {
     name: kind,
@@ -312,6 +409,9 @@ export function createFighter(kind = 'ajaye') {
     leftLeg,
     rightLeg,
     stick,
+    katana,
+    sleeve: sleeveGroup,
+    setWeapon,
     pose,
     setTint
   };

@@ -3,6 +3,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch feedback)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 // Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -18,7 +19,8 @@ const world = createWorld($('#game'));
 const input = new Input();
 const game = new Game(world, input, {
   prompt: $('#prompt'), message: $('#message'),
-  phase: $('#phase'), score: $('#score'), playerHealth: $('#player-health'),
+  phase: $('#phase'), score: $('#score'), targetName: $('#target-name'), weapon: $('#weapon'),
+  playerHealth: $('#player-health'),
   playerStamina: $('#player-stamina'), sleeveVital: $('#sleeve-vital'), sleeveCharge: $('#sleeve-charge'),
   senseiHealth: $('#sensei-health'), result: $('#result'),
   skip: $('#skip'), restart: $('#restart'), device: $('#device'),
@@ -26,8 +28,9 @@ const game = new Game(world, input, {
   fire: $('#fire'), reticle: $('#reticle'),
   pause: $('#pause'), settings: $('#settings'), loading: $('#loading'),
   hud: $('#hud'), title: $('#title'), resume: $('#resume'),
-  feedLines: $$('#feed .feed-line'), radarSensei: $('#radar-sensei'),
+  feedLines: $$('#feed .feed-line'), radarSensei: $('#radar-sensei'), radarEnemies: $$('.radar-dot.raider'),
   mapScreen: $('#map-screen'), mapPlayers: $$('.mapdot.player'), mapSenseis: $$('.mapdot.sensei'),
+  mapEnemies: $$('.mapdot.raider'),
   menuPages: {
     status: $('[data-page="status"]'), gear: $('[data-page="gear"]'),
     skills: $('[data-page="skills"]'), map: $('[data-page="map"]'),
@@ -222,6 +225,11 @@ buildBindingRows();
 game.events.on('hit', ({ target }) => world.pulse(target, 0xff6b4a));
 game.events.on('parry', () => world.pulse('sensei', 0x7fe6ff));
 game.events.on('block', () => world.pulse('player', 0x7fe6ff));
+game.events.on('grab', ({ target }) => world.pulse(target, 0xffd27f));
+game.events.on('sleeve-pulse', ({ target }) => world.pulse(target, 0x7fe6ff));
+game.events.on('weapon-change', ({ weapon }) => {
+  if (weapon === 'cipher') world.pulse('player', 0x7fe6ff);
+});
 
 const fpsLabel = $('#fps');
 let previous = performance.now();
@@ -242,7 +250,10 @@ function frame(now) {
       playerBlocking: game.blocking,
       aiming: game.aiming,
       crouching: game.crouching,
-      swing: game.playerCombat.swingAngle
+      swing: game.playerCombat.swingAngle,
+      weapon: game.weapon,
+      attackMove: game.attackMove,
+      attackProgress: game.playerCombat.attackProgress
     });
     world.render(dt);
     sampleFrames += 1;

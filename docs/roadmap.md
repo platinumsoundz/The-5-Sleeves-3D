@@ -4,9 +4,15 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 ## Now — protect and verify the training prototype
 
-**Current milestone:** village training and nonlethal staff sparring with Sensei. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
+**Current milestone:** village training, nonlethal staff sparring with Sensei, and a wilderness test route to the first tower. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
-**Status: implemented and device-tested.** The owner tested the 2026-10-22 browser build on the S23+ and reports successful play with no frame drops. The feet/staff/over-the-shoulder-aim follow-up still needs a device pass. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
+**Status: training and settlement/character pass device-tested; weapons/wilderness/raider pass headless-tested only.** The owner tested the 2026-10-22 settlement/character browser build on the S23+ and reports successful play with no frame drops. The feet/staff/aim follow-up and the new weapon/wilderness/raider pass still need their own device pass. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
+
+## Weapon and wilderness test slice
+
+**Status: implemented; headless-tested; browser/device pass pending.** The north gate opens via USE/F into a bounded open route (x ≈ ±31, z −67 to −13.2) with four separate raiders, a worn track and a first-tower silhouette. D-pad left/right (or `[`/`]`, or touch `SWAP`) cycles staff → katana → unarmed → cipher test sleeve. Unarmed uses a one-button punch → kick → grab sequence; grab staggers instead of knocking down. Raiders have their own 45 HP, AI and knockdown state and do not award spar points. Reaching `z <= −61` flags the first tower and ends the current test slice. The `CIPHER SLEEVE · TEST` entry is temporary developer content: not a story acquisition, not a canon ability, and left-arm-only.
+
+**Known limits:** no melee target cycling beyond nearest living target, no raider recovery after a knockdown, no persistence of wilderness state, placeholder raider silhouettes and tower geometry, and touch layout/button tuning remains deferred. The route exists as a test slice, not approved story geography.
 
 ## Next visual milestone — make the whitebox read as a familiar settlement
 
@@ -47,7 +53,7 @@ Only add after the owner selects scope and the current milestone is stable:
 - Korb/partner cooperation where spirits and characters retain agency; stamina, device energy and spirit willingness remain distinct.
 - Adaptive tower guardians with observable patterns; exact prose tactics (for example the draft vent sequence) are not assumed to be game mechanics.
 - Local tower improvements and story transitions; no global Fog-clearing reward by default.
-- Weaponless sparring stance: proposal only. Requires owner scope for toggle vs scenario, reach/damage/cooldown, animation set, tutorial/menu treatment and how it coexists with the staff; do not invent those rules.
+- Unarmed combat refinement: the first pass is a one-button punch → kick → grab combo. Further stances, grabs/throws, target selection and tutorial/menu treatment need owner scope and must preserve the spar rules.
 
 Do not invent module names, energy units/capacities, transfer/storage/simultaneous-use rules, lore explanations, or unresolved collapse causality to fill a mechanic gap. Mark prototypes as placeholders until owner-approved.
 
@@ -70,3 +76,5 @@ After any roadmap item is started, update this page with status (proposed / in p
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (feet/staff/aim follow-up scope)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice status; test-only sleeve)

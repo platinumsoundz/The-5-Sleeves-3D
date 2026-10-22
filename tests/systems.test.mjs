@@ -1,5 +1,6 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 import { Hud } from '../src/hud.js';
 // Headless checks for the shell systems: save data, bindings, dev codes, feed, radar, resources.
 import test from 'node:test';
@@ -210,7 +211,7 @@ test('HUD sync paints vitals, radar, feed and shell visibility', () => {
   assert.equal(feedLines[2].hidden, true);
   assert.ok(ui.radarSensei.style.transform.includes('-40'), ui.radarSensei.style.transform);
   assert.equal(ui.mapPlayers[0].style.left, '50%');
-  assert.equal(ui.mapSenseis[0].style.top, '92%');
+  assert.equal(ui.mapSenseis[0].style.top, '8%', 'negative z (toward the north gate) is up-screen');
   assert.equal(ui.menuTabs[0].classList.contains('active'), true);
   assert.equal(ui.menuTabs[1].classList.contains('active'), false);
   assert.equal(ui.menuPages.status.hidden, false);

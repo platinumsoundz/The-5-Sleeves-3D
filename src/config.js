@@ -1,6 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim tuning)
 // Tunable prototype values. No progression or canon powers are implemented here.
@@ -42,7 +43,22 @@ export const CONFIG = {
   // Match structure: knockdowns are points; first to N takes the spar.
   pointsToWin: 3,
   roundPause: 1.2,
-  arenaLimit: 5.5,
+  arenaLimit: 11.2,
+  // World slice: a training yard opening through the north gate into a wide wilderness
+  // corridor. The first tower closes the current test area.
+  trainingHalfX: 11.2,
+  trainingMaxZ: 8.2,
+  gateHalf: 2.45,
+  gateZ: -13.2,
+  wildHalfX: 31,
+  wildMinZ: -67,
+  wildMaxZ: -13.2,
+  wildTowerZ: -61,
+  // Wilderness raiders use the same nonlethal knockdown loop with separate stats.
+  wildEnemyHp: 45,
+  wildDamage: 7,
+  wildSpeed: 1.05,
+  wildAggro: 20,
   // Camera, look and touch input. Tuning placeholders until the first phone pass.
   lookSensitivity: .006,
   pitchLimit: 1.05,

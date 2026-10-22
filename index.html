@@ -2,7 +2,8 @@
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 -->
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) -->
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass) -->
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#141b19"><title>The 5 Sleeves — Training Ground</title><link rel="stylesheet" href="src/styles.css"></head><body>
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice) -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#141b19"><title>The 5 Sleeves — Training Ground &amp; Wilderness</title><link rel="stylesheet" href="src/styles.css"></head><body>
 <main id="game">
   <div id="hud">
     <section id="vitals" aria-label="Vitals">
@@ -14,6 +15,7 @@
       <div class="radar-ring"></div><div class="radar-cross"></div>
       <i id="radar-player" class="radar-dot player"></i>
       <i id="radar-sensei" class="radar-dot sensei"></i>
+      <i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i>
     </div>
     <div id="feed" role="log" aria-live="polite" aria-label="Event feed">
       <div class="feed-line" hidden></div><div class="feed-line" hidden></div><div class="feed-line" hidden></div>
@@ -21,7 +23,8 @@
     </div>
     <button id="pause" data-action="menu" type="button" aria-label="Open menu">☰ MENU</button>
     <div id="score">○○○ — ○○○</div>
-    <div class="status"><div><b>SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
+    <div id="weapon">STAFF</div>
+    <div class="status"><div><b id="target-name">SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
     <div id="device" role="status">INPUT: DETECTING</div>
     <div id="fps" aria-hidden="true">— FPS</div>
     <div id="warning" role="status" aria-label="Sensei is winding up" hidden>!</div>
@@ -43,6 +46,7 @@
       <button data-action="sprint" class="sprint">RUN</button>
       <button data-action="interact" class="interact">USE</button>
       <button data-action="confirm" class="confirm">A / UP</button>
+      <button data-action="weaponNext" class="weapon">SWAP</button>
     </div>
     <button id="fire" data-action="attack" hidden>FIRE</button>
   </div>
@@ -59,7 +63,7 @@
         <button id="title-settings" class="ghost" type="button">SETTINGS</button>
         <button id="multiplayer" type="button" disabled>MULTIPLAYER · IN DEVELOPMENT</button>
       </div>
-      <p class="version">Nonlethal staff spar · first to 3 knockdowns</p>
+      <p class="version">Nonlethal spar · wilderness slice · first to 3 knockdowns</p>
     </div>
   </div>
 
@@ -94,10 +98,11 @@
 
         <section data-page="gear" hidden>
           <h3>EQUIPPED</h3>
-          <div class="gear-slot"><span>LEFT ARM</span><b>Wrapped forearm</b><em>Cipher Sleeve not acquired</em></div>
-          <div class="gear-slot"><span>STAFF</span><b>Padded sparring staff</b><em>Nonlethal</em></div>
+          <div class="gear-slot"><span>LOADOUT</span><b>Staff · Katana · Unarmed</b><em>D-pad left / right cycles weapons and fists</em></div>
+          <div class="gear-slot"><span>TEST SLOT</span><b>Cipher Sleeve · TEST</b><em>Temporary developer test asset — not story acquisition, not canon gear</em></div>
+          <div class="gear-slot"><span>UNARMED</span><b>Punch → kick → grab</b><em>Grab staggers; knockdowns remain nonlethal</em></div>
           <h3>INVENTORY</h3>
-          <p class="muted">Empty — 0 / 12 slots. Item pickups will post to the event feed once loot exists; nothing here changes combat yet.</p>
+          <p class="muted">Prototype arsenal only. The first tower and wilderness raiders are test content; item pickups and canon upgrades are not implemented.</p>
         </section>
 
         <section data-page="skills" hidden>
@@ -111,12 +116,13 @@
         </section>
 
         <section data-page="map" hidden>
-          <h3>TRAINING GROUND</h3>
-          <div id="tabmap" class="map-square" aria-label="Training ground map">
+          <h3>TRAINING GROUND &amp; WILDERNESS</h3>
+          <div id="tabmap" class="map-square" aria-label="Training ground and wilderness map">
             <div class="map-ring"></div>
             <i class="mapdot player"></i><i class="mapdot sensei"></i>
+            <i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i>
           </div>
-          <p class="muted">North-up. Gold is you, red is Sensei. Select / Tab opens the full map at any time.</p>
+          <p class="muted">North-up. Gold is you, red is Sensei, orange raiders patrol the wilderness. Select / Tab opens the full map.</p>
           <button id="open-map" type="button">OPEN FULL MAP</button>
         </section>
 
@@ -154,24 +160,26 @@
           <p id="devresult" role="status"></p>
           <h3>MULTIPLAYER</h3>
           <p class="muted">In development — not available in this build. One opponent only.</p>
-          <p class="version">Pre-Cipher training ground · staff spar</p>
+          <p class="version">Pre-Cipher training ground · wilderness test slice</p>
         </section>
       </div>
     </div>
   </div>
 
   <div id="map-screen" role="dialog" aria-label="Map" hidden>
-    <header class="menu-head"><div><p class="eyebrow">TRAINING GROUND</p><h2>MAP</h2></div><button id="map-close" type="button">CLOSE</button></header>
+    <header class="menu-head"><div><p class="eyebrow">TRAINING GROUND &amp; WILDERNESS</p><h2>MAP</h2></div><button id="map-close" type="button">CLOSE</button></header>
     <div id="bigmap" class="map-square">
       <div class="map-ring"></div>
-      <span class="map-label north">GATE</span>
-      <span class="map-label south">DRILL RING</span>
+      <span class="map-label north">FIRST TOWER</span>
+      <span class="map-label mid">WILDERNESS</span>
+      <span class="map-label south">TRAINING YARD</span>
       <i class="mapdot player"></i><i class="mapdot sensei"></i>
+      <i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i>
     </div>
-    <p class="muted">Gold is you, red is Sensei. Select / Tab or CLOSE returns to the spar.</p>
+    <p class="muted">Gold is you, red is Sensei, orange raiders hold the route to the first tower. USE / F at the north gate enters the wilderness.</p>
   </div>
 
-  <div id="loading">Preparing training ground…</div>
+  <div id="loading">Preparing training ground &amp; wilderness…</div>
 </main>
 <script type="module" src="src/main.js"></script>
 <script>

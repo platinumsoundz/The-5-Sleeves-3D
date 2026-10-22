@@ -21,11 +21,16 @@ Primary model: `opencode/deepseek-v4.1-flash-free` (DeepSeek V4.1 Flash Free). O
 ChatGPT-6 Luna, exact model ID unconfirmed. See chapter 4 before editing.
 
 ## Current milestone
-Whitebox village training area: skippable tutorial, then nonlethal staff sparring with Sensei,
-scored first to 3 knockdowns. Guard, block, dodge and parry share one input; Sensei telegraphs
-and punishes whiffs. Touch uses a mobile-shooter layout (analog stick, right-side look, hold AIM
-for zoom/lock and a left FIRE button); PC uses the standard shooter layout. Core rules, AI,
-defense, controls, feedback and HUD modules are built and headless-tested; the first browser test
-is still outstanding and gates any feel/tuning work.
+Whitebox village training area plus a wilderness test route: skippable tutorial, nonlethal sparring
+with Sensei scored first to 3 knockdowns, and four separate raiders guarding the path to a first-
+tower silhouette. Staff → katana → unarmed → test sleeve cycle on D-pad left/right; unarmed is a
+punch → kick → grab combo. Guard, block, dodge and parry share one input; Sensei telegraphs and
+punishes whiffs. Touch uses a mobile-shooter layout (analog stick, right-side look, hold AIM for
+zoom/lock, left FIRE and a SWAP button); PC uses the standard shooter layout. The settlement and
+character visual pass was owner-tested; the weapons/wilderness/raider slice is headless-tested and
+still needs a browser/device pass. The `CIPHER SLEEVE · TEST` entry is temporary developer content,
+not story acquisition or canon.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness milestone note; test-only sleeve)
