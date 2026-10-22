@@ -1,6 +1,6 @@
 # The 5 Sleeves — Training Ground
 
-Current visual-pass preview (commit-pinned because raw.githack's `/main/` path can serve a cached module): https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/4b1b564/index.html
+Current visual-pass preview (commit-pinned because raw.githack's `/main/` path can serve a cached module): https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/c5e3236/index.html
 
 Serve over HTTP and open localhost:8000. Requires WebGL and Three.js CDN. This is a procedural settlement training scene with low-poly character whiteboxes; no external art assets are required.
 
