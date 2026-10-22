@@ -1,6 +1,6 @@
 # The 5 Sleeves — Training Ground & Wilderness Slice
 
-This is the procedural training-yard and wilderness prototype. Serve it over HTTP and open `localhost:8000`. It requires WebGL and three.js from the CDN; no external art assets are needed. It is now an installable PWA: `manifest.webmanifest` plus `sw.js` cache the app shell and the pinned three.js module, so an installed copy can start offline after one successful online visit. Runtime icons are placeholders under `icons/`.
+This is the procedural training-yard and wilderness prototype. Serve it over HTTP and open `localhost:8000`. It requires WebGL and three.js from the CDN; no external art assets are needed. It is now an installable PWA: `manifest.webmanifest` plus `sw.js` cache the app shell and the pinned three.js module, so an installed copy can start offline after one successful online visit. The five runtime PWA icons under `icons/` are generated from the owner-supplied source at `icons/source/app-icon.png`.
 
 The playable loop is still nonlethal: train with Sensei, then spar to the first three knockdowns. The north gate opens into a wide wilderness route with four raiders and an occupied enemy outpost at the end of the test slice. D-pad left/right (or `[` / `]` on keyboard, `SWAP` on touch) cycles `staff → katana → unarmed → cipher test sleeve`; the staff remains first so the existing tutorial and spar flow are unchanged. Unarmed uses one attack button for a `punch → kick → grab` sequence; the grab staggers rather than scoring a knockdown. Raiders use separate encounters and do not award spar points. No deaths, save/menu behavior and first-to-three sparring are preserved. Players, Sensei and raiders now resolve against solid scenery instead of walking through buildings, crates, trees and the outpost.
 
@@ -22,7 +22,7 @@ The Cipher Sleeve HUD meter stays hidden unless the test sleeve is equipped. Hip
 
 **Install:** Android/Chromium may show an INSTALL APP button on the title screen; otherwise use the browser menu → Install app. On iPhone/iPad use Share → Add to Home Screen. Installation needs HTTPS (or localhost) and the site must be served from a real origin rather than opening the HTML directly.
 
-**Icon handoff:** the current artwork is a generated placeholder. Provide one square PNG at 1024×1024 or larger at `icons/source/app-icon.png`; the runtime files to replace/export are `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. Keep those filenames so the manifest, iOS meta tag and service-worker cache stay valid. Details are in `icons/README.md`.
+**Icon artwork:** the owner-supplied source at `icons/source/app-icon.png` has been exported to the runtime files `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. You do not need to replace those five by hand. If the source artwork changes, replace only `icons/source/app-icon.png` and regenerate all five exports; keeping the filenames stable preserves the manifest, iOS meta tag and service-worker cache. Details are in `icons/README.md`.
 
 Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/d058147/index.html`.
 
@@ -34,3 +34,5 @@ Current preview is commit-pinned because raw.githack's `/main/` path can serve c
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)

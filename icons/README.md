@@ -1,19 +1,25 @@
 # PWA icons
 
-These are temporary generated placeholders. Replace them with approved artwork before release.
+The custom source artwork is supplied at `icons/source/app-icon.png`. The five runtime files in
+this folder are generated from that source and are no longer placeholders.
 
 ## Files the app expects
 
 - `icons/icon-192.png` — 192×192 PNG, any-purpose Android/desktop icon.
 - `icons/icon-512.png` — 512×512 PNG, high-resolution install icon.
-- `icons/icon-maskable-512.png` — 512×512 PNG, maskable Android icon with the logo inside the central safe zone.
+- `icons/icon-maskable-512.png` — 512×512 PNG, maskable Android icon with the illustration inside
+  the central safe area and the source's dark margin extended around it.
 - `icons/apple-touch-icon.png` — 180×180 PNG, iPhone/iPad home-screen icon.
 - `icons/favicon-32.png` — 32×32 PNG browser tab icon.
 
-## Custom artwork handoff
+## Updating the artwork
 
-Provide **one square PNG at 1024×1024 or larger**, preferably with no rounded corners (Android and iOS apply their own masks). Place the source at:
+Keep the source square PNG at 1024×1024 or larger at:
 
 `icons/source/app-icon.png`
 
-The five runtime files above can then be regenerated/cropped from that source. Keep the same filenames so `manifest.webmanifest`, `index.html`, and `sw.js` keep working.
+Regenerate all five runtime files from that source rather than replacing only one of them. Keep the
+same filenames so `manifest.webmanifest`, `index.html` and `sw.js` keep working. The current source
+is 1254×1254 RGB and the runtime exports were generated on 2026-10-22.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)

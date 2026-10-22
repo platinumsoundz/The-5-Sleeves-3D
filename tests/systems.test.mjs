@@ -63,12 +63,24 @@ test('PWA manifest exposes installable icons and the worker precaches the shell'
   for (const icon of manifest.icons) {
     await access(new URL(`../${icon.src}`, import.meta.url));
   }
+  const runtimeIcons = {
+    'icons/icon-192.png': [192, 192],
+    'icons/icon-512.png': [512, 512],
+    'icons/icon-maskable-512.png': [512, 512],
+    'icons/apple-touch-icon.png': [180, 180],
+    'icons/favicon-32.png': [32, 32]
+  };
+  for (const [path, [width, height]] of Object.entries(runtimeIcons)) {
+    const png = await readFile(new URL(`../${path}`, import.meta.url));
+    assert.equal(png.readUInt32BE(16), width, `${path} width`);
+    assert.equal(png.readUInt32BE(20), height, `${path} height`);
+  }
   const worker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(worker, /src\/device\.js/);
   assert.match(worker, /src\/collision\.js/);
   assert.match(worker, /src\/story\.js/);
   assert.match(worker, /src\/main\.js/);
-  assert.match(worker, /five-sleeves-shell-v2/);
+  assert.match(worker, /five-sleeves-shell-v3/);
   assert.match(worker, /three@0\.160\.0/);
 });
 

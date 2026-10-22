@@ -545,13 +545,21 @@ world-map outpost labelling and the HUD quest fixture. No browser/device render 
 collision feel, outpost approach, title/story layout, landscape HUD, iPad touch layout, controller
 pairing, PWA installation and FPS behavior still need the owner's screen test.
 
-**Gaps/next:** custom PWA icon artwork remains pending at `icons/source/app-icon.png`; runtime
-files to replace are `icons/icon-192.png`, `icons/icon-512.png`,
-`icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. Touch-button
-layout remains deferred. The story deck currently has no branches, portraits or seen-state save.
+**PWA icon follow-up:** the owner supplied `icons/source/app-icon.png` (1254×1254 RGB). Exported
+the five runtime files from that one source: `icons/icon-192.png`, `icons/icon-512.png`,
+`icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. The
+maskable export pads the illustration into the central safe area on the source's dark margin,
+then the service-worker cache was bumped so installed clients refresh the icon set. The five
+runtime files should not be replaced individually: update the single source and regenerate all
+five exports.
+
+**Gaps/next:** touch-button layout remains deferred. The story deck currently has no branches,
+portraits or seen-state save.
 
 **Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/d058147/index.html`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)

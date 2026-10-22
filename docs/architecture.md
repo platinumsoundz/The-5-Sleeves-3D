@@ -113,8 +113,9 @@ wilderness. Adding a region or quest is a data change, not a new projection path
 the runtime icons and the pinned jsDelivr three.js module; navigations are network-first with an
 offline shell fallback, while static assets use stale-while-revalidate. Chromium's deferred
 `beforeinstallprompt` drives the optional title-screen install button; iOS uses the manifest and
-Apple touch icon plus Share → Add to Home Screen. Icons are generated placeholders under `icons/`
-with a documented source-art handoff in `icons/README.md`.
+Apple touch icon plus Share → Add to Home Screen. The five runtime icons under `icons/` are
+generated from the owner-supplied source at `icons/source/app-icon.png`; `icons/README.md` records
+the export names and regeneration rule.
 
 `settings.js` owns validation and storage I/O for look/quality/touch; `main.js` loads settings,
 passes them to `world.setSettings`/`setQuality`, and reflects the controls. `save.js` persists
@@ -154,3 +155,5 @@ Touch-button size, placement and feel remain deferred at the owner's request.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)

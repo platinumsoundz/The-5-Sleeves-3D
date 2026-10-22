@@ -6,8 +6,8 @@
 - `src/input.js`: normalized keyboard/gamepad/touch actions, analog stick/right-stick look, mouse click-vs-drag, input-type labels and hints.
 - `src/device.js`: pure touch-capability/standalone detection, including iPadOS desktop-UA handling.
 - `src/controls.js`: pure deadzone/joystick/clamp math shared by the browser input layer and tests.
-- `manifest.webmanifest`, `sw.js`, `icons/`: installable PWA metadata, app-shell/offline cache, generated placeholder icons and the custom-art handoff.
-- `icons/README.md`: exact runtime icon filenames and the optional `icons/source/app-icon.png` source path.
+- `manifest.webmanifest`, `sw.js`, `icons/`: installable PWA metadata, app-shell/offline cache, owner-supplied source art and the five generated runtime icons.
+- `icons/README.md`: exact runtime icon filenames and the `icons/source/app-icon.png` regeneration source.
 - `src/settings.js`: sanitized sensitivity/invert-Y/quality/touch-layout settings with injectable storage.
 - `src/bindings.js`: remappable keyboard/controller binding tables, sanitize/swap/persist helpers.
 - `src/save.js`: versioned local save slot with sanitize/load/write/delete and injectable storage.
@@ -67,3 +67,5 @@ Run `npm test` (72 headless checks) before the device pass. Start with the title
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)
