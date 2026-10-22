@@ -32,6 +32,7 @@ Physical ragdoll; multi-target cycling; real progression/XP/currency; inventory 
 - Save: SYSTEM → SAVE GAME writes tutorial completion, dev-granted XP/cash and permissions to `five-sleeves.save.v1`. Resume restores them; Delete removes the slot. Settings, bindings and touch layout persist separately.
 - Dev codes: `DEV-XP-500`, `DEV-CASH-1000` and `DEV-GEAR-SLEEVE` are placeholders for the eventual code list; they grant save values/permissions and log to the feed. No real weapons or economy yet.
 - HUD: top-left health/stamina bars, radar beneath, then the event feed; MENU top centre with score beneath; Sensei health/phase top right. The radar is also a map shortcut on touch/desktop. Stamina drains while sprinting and is spent by jumps/dodges. The sleeve bar is hidden because the Cipher Sleeve is not acquired in this pre-story scene; no capacity or charge is modelled yet.
+- Character articulation (2026-10-22): hips/knees and the free shoulder/elbow now bend for walking, crouching and attack counterbalance. Crouch is a pose rather than a root squash; the staff hand stays stable. Menu tabs no longer shrink when the menu body scrolls.
 - Visual pass (2026-10-22): the arena is now a repaired settlement training yard rather than a bare ring — patched perimeter fence and gate, workshop, house with warm windows, market awning, rain barrel/hand pump, solar array and battery, air-scrubber fan, laundry, crates/barrels, staff rack, trees, distant water tower/mast and a green-grey fogline. Ajaye and Sensei are low-poly whitebox silhouettes with clothing, hair, staff and simple faces; Ajaye has no Cipher Sleeve and stays left-arm-only if one is later added. Owner reference sheets are still needed before claiming likeness.
 - Browser status: owner tested the pre-visual build in-browser on the S23+, reported smooth play at 120 FPS and no issues beyond dissatisfaction with the touch-button layout. Touch layout is intentionally deferred. The new visual pass has not yet had a browser smoke test.
 - Pause/settings: menu freezes simulation; look sensitivity (0.4–2×), invert-Y and graphics quality (performance 1×, balanced ≤1.5×, sharp ≤2.5× pixel ratio) plus remapping and touch layout all persist in local storage.
@@ -41,3 +42,5 @@ Physical ragdoll; multi-target cycling; real progression/XP/currency; inventory 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)

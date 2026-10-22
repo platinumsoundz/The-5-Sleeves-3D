@@ -301,3 +301,20 @@ This agent did not author or alter their canon claims.
 **Verification:** `node --check src/main.js`; `npm test` → 53/53. Browser rendering remains unverified here.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (articulated limbs and menu stability)
+
+**Scope:** owner reported successful device/browser tests with no frame drops and asked for more structured character control — real bending limbs while attacking/crouching — plus stable menu tabs and general polish.
+
+**Files:** `src/characters.js`, `src/world.js`, `src/game.js`, `src/main.js`, `src/styles.css`, `README.md`, `docs/architecture.md`, `docs/memory/02-gameplay.md`, `docs/memory/03-technical.md`, `docs/roadmap.md`.
+
+**Change:**
+- Added hip/knee pivots and retained shoulder/elbow groups; per-limb batching keeps the extra articulation cheap. The free arm, hips and knees now walk, counterbalance attacks and bend into a crouch. The staff arm remains stable so grip/guard swing stay readable.
+- Crouch is now a presentation pose (arms/legs/lean) instead of squashing the whole gameplay root; movement/combat rules are unchanged.
+- Player crouch state is pushed through `setFeedback({ crouching })`.
+- Menu tabs use non-shrinking flex items and a non-shrinking tab strip, so the header stays stable while the menu body scrolls.
+- Updated roadmap status from device-pending to owner-tested with no reported frame drops.
+
+**Verification:** `node --check` clean; `npm test` → 53/53; local Three smoke checks built environment + both fighters, exercised `pose()` for crouch/walk and render. Browser visuals still need the owner’s eyes.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)

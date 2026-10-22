@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated pose)
 // Render world: procedural settlement, character whitebox, drag-orbit camera and feedback tints.
 // Presentation only — no gameplay rules. main.js pushes feedback state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -124,9 +125,14 @@ export function createWorld(host) {
   // Short-lived colour flashes on a landed hit, parry or block.
   const flashUntil = { player: 0, sensei: 0 };
   const flashColor = { player: new THREE.Color(), sensei: new THREE.Color() };
-  let feedback = { senseiWindingUp: false, playerBlocking: false, aiming: false, swing: 0 };
+  let feedback = { senseiWindingUp: false, playerBlocking: false, aiming: false, crouching: false, swing: 0 };
   let wasWinding = false;
   let senseiFollowThrough = 0;
+  const previousPlayer = playerFighter.root.position.clone();
+  const previousSensei = senseiFighter.root.position.clone();
+  let playerPhase = 0;
+  let senseiPhase = 0;
+  let playerCrouch = 0;
 
   return {
     player: playerFighter.root,
@@ -165,6 +171,7 @@ export function createWorld(host) {
         senseiWindingUp: winding,
         playerBlocking: next.playerBlocking === true,
         aiming: next.aiming === true,
+        crouching: next.crouching === true,
         swing: Number.isFinite(next.swing) ? next.swing : 0
       };
     },
@@ -192,14 +199,31 @@ export function createWorld(host) {
         flashE ? .82 : feedback.senseiWindingUp ? .42 : 0
       );
 
-      // Idle breathing, upper-body weight shift and a small lift that keeps the low-poly body
-      // from sinking through the ground while the gameplay root is rotated for a knockdown.
+      // Idle breathing, articulated gait, crouch and a small lift that keeps the body from
+      // sinking through the ground while the gameplay root is rotated for a knockdown.
+      const p = playerFighter.root.position;
+      const e = senseiFighter.root.position;
       const pDown = Math.min(1, Math.abs(playerFighter.root.rotation.z) / (Math.PI / 2));
       const sDown = Math.min(1, Math.abs(senseiFighter.root.rotation.z) / (Math.PI / 2));
-      playerFighter.visual.position.y = Math.sin(time * 1.7) * .007 + pDown * .55;
-      senseiFighter.visual.position.y = Math.sin(time * 1.45 + 1.8) * .007 + sDown * .55;
+      const pSpeed = Math.hypot(p.x - previousPlayer.x, p.z - previousPlayer.z) / Math.max(dt, .001);
+      const eSpeed = Math.hypot(e.x - previousSensei.x, e.z - previousSensei.z) / Math.max(dt, .001);
+      playerPhase += pSpeed * dt * 2.45;
+      senseiPhase += eSpeed * dt * 2.45;
+      playerCrouch += ((feedback.crouching ? 1 : 0) - playerCrouch) * Math.min(1, dt * 10);
+      previousPlayer.copy(p);
+      previousSensei.copy(e);
+      const pWalk = pDown ? 0 : Math.min(1.5, pSpeed / CONFIG.move);
+      const eWalk = sDown ? 0 : Math.min(1.5, eSpeed / CONFIG.move);
+      const pStep = playerFighter.pose({
+        walk: pWalk, phase: playerPhase, crouch: pDown ? 0 : playerCrouch, swing: feedback.swing,
+        guard: feedback.playerBlocking
+      });
+      const eStep = senseiFighter.pose({ walk: eWalk, phase: senseiPhase });
+      playerFighter.visual.position.y = Math.sin(time * 1.7) * .007 + pDown * .55 + pStep;
+      senseiFighter.visual.position.y = Math.sin(time * 1.45 + 1.8) * .007 + sDown * .55 + eStep;
       const ease = Math.min(1, dt * 10);
-      playerFighter.upper.rotation.x += ((feedback.playerBlocking ? -.06 : 0) - playerFighter.upper.rotation.x) * ease;
+      const pLean = pDown ? 0 : feedback.playerBlocking ? -.06 : -playerCrouch * .16;
+      playerFighter.upper.rotation.x += (pLean - playerFighter.upper.rotation.x) * ease;
       playerFighter.upper.rotation.y += (feedback.swing * .16 - playerFighter.upper.rotation.y) * ease;
       senseiFighter.upper.rotation.x += ((feedback.senseiWindingUp ? .1 : 0) - senseiFighter.upper.rotation.x) * ease;
 
@@ -210,8 +234,6 @@ export function createWorld(host) {
       senseiFighter.stick.rotation.x += (senseiStaffX - senseiFighter.stick.rotation.x) * Math.min(1, dt * 11);
       senseiFighter.stick.rotation.z += (senseiStaffZ - senseiFighter.stick.rotation.z) * Math.min(1, dt * 14);
 
-      const p = playerFighter.root.position;
-      const e = senseiFighter.root.position;
       const mid = p.clone().lerp(e, locked ? 0.5 : 0);
 
       // Recentre behind the lock axis shortly after the player stops dragging.

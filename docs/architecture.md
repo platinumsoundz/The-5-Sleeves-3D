@@ -7,7 +7,7 @@ nothing downstream reads raw device codes or touch coordinates. Bindings are san
 Pure deadzone/joystick math lives in `controls.js` so it can be tested without a browser.
 `world.js` owns the Three.js scene, camera, aim zoom and viewport. `scenery.js` builds the
 procedural settlement set dressing and ambient animation; `characters.js` builds the Ajaye and
-Sensei whitebox silhouettes. `game.js` orchestrates screens, tutorial, movement, strikes, rounds,
+Sensei silhouettes with articulated hip/knee and shoulder/elbow pivots. `game.js` orchestrates screens, tutorial, movement, strikes, rounds,
 saves and match end, and is the only class the browser entry point touches.
 
 Rules are split so they cannot drift apart and can be tested without a renderer:
@@ -47,7 +47,7 @@ guard keeps blocking; three blocked hits inside the window break the guard. All 
 live in `combat.js`, never in the input layer.
 
 Presentation is push-only: `main.js` passes `setFeedback({ senseiWindingUp, playerBlocking,
-aiming, swing })` to `world.js` each frame, forwards gamepad look and `hit`/`parry`/`block` events,
+aiming, crouching, swing })` to `world.js` each frame, forwards gamepad look and `hit`/`parry`/`block` events,
 and `world.look(dx, dy)` handles mouse/touch drags internally. No render module reads gameplay
 state directly. The frame loop skips updates while the document is hidden, and `index.html` reports
 a load failure if the CDN module never arrives.
@@ -87,3 +87,5 @@ size, placement and feel remain deferred at the owner's request.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)

@@ -1,6 +1,7 @@
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 */
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) */
 /* ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass) */
+/* ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (stable menu tabs) */
 :root {
   --ink: #e9ece5;
   --muted: #a7b1a7;
@@ -290,12 +291,13 @@ h3 {
 }
 .menu-head h2 { font-size: clamp(24px, 4vw, 36px); }
 #menu-tabs {
-  display: flex; gap: 2px; overflow-x: auto; padding: 0 12px;
+  display: flex; gap: 2px; overflow-x: auto; overflow-y: hidden; padding: 0 12px;
   border-bottom: 1px solid var(--line); background: #080f0ccc;
-  scrollbar-width: none;
+  scrollbar-width: none; flex-shrink: 0;
 }
 #menu-tabs::-webkit-scrollbar { display: none; }
 #menu-tabs button {
+  flex: 0 0 auto; min-width: max-content;
   border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   background: transparent; color: #ffffff8a; padding: 12px 13px;
   font-size: 9px; letter-spacing: .16em; white-space: nowrap;

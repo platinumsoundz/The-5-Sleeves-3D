@@ -1,4 +1,5 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs)
 // Low-poly character whitebox for Ajaye and Sensei. Silhouette and clothing first; faces stay
 // deliberately simple until approved reference sheets arrive. Ajaye has no Cipher Sleeve here:
 // this is the pre-discovery training scene. Presentation only — no gameplay state lives here.
@@ -84,20 +85,29 @@ export function createFighter(kind = 'ajaye') {
   visual.scale.setScalar(sensei ? 1 : .94);
   root.add(visual);
 
-  // Boots and legs sit below the waist group so the torso can breathe independently.
+  // Hip/knee pivots keep the legs articulated for walking and crouching.
+  const legs = [];
   for (const side of [-1, 1]) {
-    const x = side * .145;
-    visual.add(cylinder(.105, .09, .39, 6, mats.cloth2, x, .69, 0));
-    visual.add(cylinder(.09, .078, .37, 6, mats.cloth, x, .315, 0));
-    visual.add(box(.19, .04, .31, mats.boot, x, .025, .045));
-    visual.add(box(.17, .13, .25, mats.boot, x, .1, .045));
-    visual.add(box(.12, .12, .04, mats.leather, x, .22, -.16));
+    const hip = new THREE.Group();
+    hip.position.set(side * .145, .9, 0);
+    visual.add(hip);
+    hip.add(cylinder(.105, .09, .39, 6, mats.cloth2, 0, -.21, 0));
+
+    const knee = new THREE.Group();
+    knee.position.y = -.4;
+    hip.add(knee);
+    knee.add(cylinder(.09, .078, .37, 6, mats.cloth, 0, -.185, 0));
+    knee.add(box(.19, .04, .31, mats.boot, 0, -.875, .045));
+    knee.add(box(.17, .13, .25, mats.boot, 0, -.8, .045));
+    knee.add(box(.12, .12, .04, mats.leather, 0, -.68, -.16));
     if (!sensei && side === 1) {
-      const patch = box(.13, .16, .025, mats.cloth3, x, .7, .105);
+      const patch = box(.13, .16, .025, mats.cloth3, 0, -.2, .105);
       patch.rotation.z = .12;
-      visual.add(patch);
+      hip.add(patch);
     }
+    legs.push({ hip, knee });
   }
+  const [rightLeg, leftLeg] = legs;
 
   visual.add(box(.38, .2, .25, mats.cloth2, 0, .9, 0));
   const belt = cylinder(.235, .235, .09, 8, mats.leather, 0, .985, 0);
@@ -254,12 +264,36 @@ export function createFighter(kind = 'ajaye') {
     }
   }
 
-  // Collapse static pieces inside each animated section. Twisting the upper body, breathing with
-  // visual and swinging the staff still work because those groups remain separate.
+  // Procedural pose keeps the armour simple while giving the silhouette readable articulation.
+  // The staff hand stays stable; the free arm, hips and knees carry the walk/crouch/attack read.
+  function pose({ walk = 0, phase = 0, crouch = 0, swing = 0, guard = false } = {}) {
+    const c = Math.max(0, Math.min(1, crouch));
+    const w = Math.max(0, Math.min(1.5, walk));
+    const gait = Math.sin(phase) * .55 * w;
+    rightLeg.hip.rotation.x = -c * .85 - gait;
+    leftLeg.hip.rotation.x = -c * .85 + gait;
+    rightLeg.knee.rotation.x = c * 1.6 + Math.max(0, -gait) * .65;
+    leftLeg.knee.rotation.x = c * 1.6 + Math.max(0, gait) * .65;
+
+    leftArm.group.rotation.x = -.12 - gait * .56 - c * .22 + swing * .3 - (guard ? .48 : 0);
+    leftArm.elbow.rotation.x = -.12 - Math.max(0, gait) * .45 - c * .38 - swing * .28 - (guard ? .5 : 0);
+    return -c * .27 + Math.abs(Math.sin(phase * 2)) * .012 * w;
+  }
+
+  // Collapse static pieces inside each animated section. Hips, knees, shoulders, elbows and the
+  // staff remain separate so the procedural pose can move them after batching.
   root.updateMatrixWorld(true);
-  batchSection(visual, [upper]);
-  batchSection(upper, [stick, torso]);
+  batchSection(visual, [upper, leftLeg.hip, rightLeg.hip]);
+  batchSection(upper, [leftArm.group, rightArm.group, stick, torso]);
   batchSection(stick, []);
+  for (const arm of [leftArm, rightArm]) {
+    batchSection(arm.group, [arm.elbow]);
+    batchSection(arm.elbow, []);
+  }
+  for (const leg of [leftLeg, rightLeg]) {
+    batchSection(leg.hip, [leg.knee]);
+    batchSection(leg.knee, []);
+  }
 
   return {
     name: kind,
@@ -270,7 +304,10 @@ export function createFighter(kind = 'ajaye') {
     head: headGroup,
     leftArm,
     rightArm,
+    leftLeg,
+    rightLeg,
     stick,
+    pose,
     setTint
   };
 }

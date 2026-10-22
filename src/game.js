@@ -1,6 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch state)
 // Sparring loop orchestrator: tutorial, movement, strikes, rounds and match completion.
 // Rules live in fighter/combat/ai/match; DOM writes live in hud.js, so this class stays
 // runnable under `node --test` with stub world, input and UI objects.
@@ -59,6 +60,7 @@ export class Game {
     this.locked = false;
     this.aiming = false;
     this.blocking = false;
+    this.crouching = false;
     this.screen = 'playing';
     this.menuFrom = 'playing';
     this.paused = false;
@@ -345,7 +347,7 @@ export class Game {
       player.rotation.y = Math.atan2(sensei.position.x - player.position.x, sensei.position.z - player.position.z);
     }
 
-    player.scale.y = this.input.isDown('crouch') ? 0.68 : 1;
+    this.crouching = this.input.isDown('crouch');
 
     if (this.input.consume('jump') && player.position.y <= 0.01 && this.stamina.spend(CONFIG.jumpCost)) {
       player.userData.vy = CONFIG.jump;

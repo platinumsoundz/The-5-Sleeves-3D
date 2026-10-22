@@ -6,11 +6,11 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 **Current milestone:** village training and nonlethal staff sparring with Sensei. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
-**Status: implemented (pre-visual build browser-tested by owner).** The owner tested the browser build on the S23+ and reports smooth play at 120 FPS with no issues beyond the touch-button layout, which is deferred. Confirm loading, camera, controls, resize, spar flow and WebGL stability after the 2026-10-22 settlement/character visual pass. The visual pass itself is not yet device-verified. Do not tune performance or claim feel based only on headless tests.
+**Status: implemented and device-tested.** The owner tested the browser build on the S23+ and reports successful play with no frame drops. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
 
 ## Next visual milestone — make the whitebox read as a familiar settlement
 
-**Status: implemented (procedural first pass, pending device review/reference sheets).**
+**Status: implemented and device-tested (procedural first pass; reference sheets still required for final likeness).**
 
 **Intent:** replace the anonymous arena impression with a recognizable, inhabited, near-future village training yard while retaining inexpensive procedural geometry and the existing combat footprint. This is a visual/presentation pass; it does not expand gameplay or change story canon.
 
@@ -26,7 +26,7 @@ Possible visual language grounded in Book One drafts and the canon guide:
 
 ## Character whitebox — shape before likeness
 
-**Status: implemented (first procedural silhouettes, not final likeness).**
+**Status: implemented (articulated procedural silhouettes; not final likeness).**
 
 The story/visual references do help establish character design direction: Ajaye is a practical, dark-layered scavenger with dense curly brown hair and a left-arm-only Cipher Sleeve after discovery; Sensei is a disciplined practical teacher; Korb is agile/expressive with an emerald Wind Sleeve only after his spirit chooses him. Approved model sheets outrank text descriptions. Exact character reference images are not currently available in the project, so do not claim a faithful likeness or invent facial specifics.
 
@@ -53,7 +53,7 @@ Do not invent module names, energy units/capacities, transfer/storage/simultaneo
 ## Cross-device and performance guardrails
 
 - Browser-first, responsive, touch/keyboard/mouse/controller support remains the goal.
-- S23+ target and 30 FPS baseline are goals. The owner reports 120 FPS for the pre-visual build; re-measure after the settlement/character pass.
+- S23+ target and 30 FPS baseline are met/exceeded in the owner’s current device test (no frame drops reported); keep reporting FPS, draw calls and triangles during future content additions.
 - Prefer simple procedural geometry, restrained materials and controlled draw calls; measure before adding effects. The HUD FPS readout also reports draw calls and triangles so device checks can record a concrete budget.
 - Recheck camera framing, combat readability, menu/HUD legibility and touch reach after environment changes.
 - Browser screenshots/video are evidence for visual QA; headless tests remain evidence for pure game rules, not visual fidelity.
@@ -65,3 +65,5 @@ After any roadmap item is started, update this page with status (proposed / in p
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (status update only; original roadmap material supplied by owner/ChatGPT)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout note)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)

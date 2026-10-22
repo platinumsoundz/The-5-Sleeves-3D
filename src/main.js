@@ -2,6 +2,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch feedback)
 // Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -240,6 +241,7 @@ function frame(now) {
       senseiWindingUp: game.ai.windingUp,
       playerBlocking: game.blocking,
       aiming: game.aiming,
+      crouching: game.crouching,
       swing: game.playerCombat.swingAngle
     });
     world.render(dt);
