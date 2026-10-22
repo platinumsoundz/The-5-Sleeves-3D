@@ -1,6 +1,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
+
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim tuning)
 // Tunable prototype values. No progression or canon powers are implemented here.
 export const CONFIG = {
   // Movement
@@ -50,5 +52,9 @@ export const CONFIG = {
   fov: 55,
   aimFov: 42,
   cameraDistance: 9.5,
-  aimCameraDistance: 6.5
+  // Over-the-shoulder aim is anchored to the player, not the fighter midpoint.
+  aimCameraDistance: 4.1,
+  aimShoulderOffset: .68,
+  aimHeight: 1.55,
+  aimFocusHeight: 1.28
 };

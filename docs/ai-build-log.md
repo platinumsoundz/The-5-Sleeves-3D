@@ -318,3 +318,19 @@ This agent did not author or alter their canon claims.
 **Verification:** `node --check` clean; `npm test` → 53/53; local Three smoke checks built environment + both fighters, exercised `pose()` for crouch/walk and render. Browser visuals still need the owner’s eyes.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (feet, staff grip and over-the-shoulder aim)
+
+**Scope:** owner reported that feet looked detached during jumps, the staff did not read as held, weaponless combat should be considered, and held aim should become a fixed over-the-shoulder camera.
+
+**Files:** `src/characters.js`, `src/world.js`, `src/config.js`, `README.md`, `docs/architecture.md`, `docs/memory/02-gameplay.md`, `docs/memory/03-technical.md`, `docs/roadmap.md`.
+
+**Change:**
+- Corrected the knee-group boot/sole/heel offsets that placed the boots 0.4 units below the shins; feet now stay attached and planted. Deepened the crouch pose so the body lowers while the soles stay at floor level.
+- Created a compensating `staffMount` at the right hand and parented the staff to it, so the grip origin is exactly the hand anchor and follows ready/guard/swing rotations. Per-limb batching excludes the mount.
+- Added an aim-only over-the-shoulder camera branch: 4.1m behind, 0.68m to the player's right, 1.55m high, looking along the player's facing. Vertical drag controls aim pitch; horizontal drag is a small recentring shoulder offset. Normal play keeps the orbit camera.
+- Recorded weaponless combat as a proposal only; no reach/damage/stance/toggle rules were invented.
+
+**Verification:** `node --check` clean; `npm test` → 53/53; local Three smoke built both fighters, confirmed staff grip and hand positions coincide (delta 0.0000), rest foot minY 0.012, crouch foot minY 0.019, and aim camera at (-0.68, 1.55, 6.60) for a player at z 2.5 facing the Sensei. Browser visual/device pass still required.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (feet, staff grip and over-the-shoulder aim)

@@ -5,7 +5,7 @@ standard gamepad and touch into named actions plus an analog move vector and rig
 nothing downstream reads raw device codes or touch coordinates. Bindings are sanitized in
 `bindings.js`, and remapping swaps displaced keys/buttons so no action silently loses its input.
 Pure deadzone/joystick math lives in `controls.js` so it can be tested without a browser.
-`world.js` owns the Three.js scene, camera, aim zoom and viewport. `scenery.js` builds the
+`world.js` owns the Three.js scene, orbit camera, fixed over-the-shoulder aim view and viewport. `scenery.js` builds the
 procedural settlement set dressing and ambient animation; `characters.js` builds the Ajaye and
 Sensei silhouettes with articulated hip/knee and shoulder/elbow pivots. `game.js` orchestrates screens, tutorial, movement, strikes, rounds,
 saves and match end, and is the only class the browser entry point touches.
@@ -54,7 +54,7 @@ a load failure if the CDN module never arrives.
 
 Touch is laid out like a mobile shooter: the joystick owns the bottom-left, the right 45% of the
 canvas is the look area, and the right cluster holds aim/attack/jump/guard/crouch/sprint/use.
-Holding aim also reveals `#fire` under the left thumb. `Hud.sync` is what toggles those elements;
+Holding aim switches the camera to a player-anchored over-the-shoulder view and reveals `#fire` under the left thumb. `Hud.sync` is what toggles those elements;
 `input.js` only reads the DOM nodes for the stick and buttons. Because a held button can disappear
 (MENU pauses, STAFF hides while aiming), pointer releases are also caught on `window` so an action
 cannot stay stuck down.
@@ -89,3 +89,5 @@ size, placement and feel remain deferred at the owner's request.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim)

@@ -6,7 +6,7 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 **Current milestone:** village training and nonlethal staff sparring with Sensei. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
-**Status: implemented and device-tested.** The owner tested the browser build on the S23+ and reports successful play with no frame drops. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
+**Status: implemented and device-tested.** The owner tested the 2026-10-22 browser build on the S23+ and reports successful play with no frame drops. The feet/staff/over-the-shoulder-aim follow-up still needs a device pass. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
 
 ## Next visual milestone — make the whitebox read as a familiar settlement
 
@@ -47,6 +47,7 @@ Only add after the owner selects scope and the current milestone is stable:
 - Korb/partner cooperation where spirits and characters retain agency; stamina, device energy and spirit willingness remain distinct.
 - Adaptive tower guardians with observable patterns; exact prose tactics (for example the draft vent sequence) are not assumed to be game mechanics.
 - Local tower improvements and story transitions; no global Fog-clearing reward by default.
+- Weaponless sparring stance: proposal only. Requires owner scope for toggle vs scenario, reach/damage/cooldown, animation set, tutorial/menu treatment and how it coexists with the staff; do not invent those rules.
 
 Do not invent module names, energy units/capacities, transfer/storage/simultaneous-use rules, lore explanations, or unresolved collapse causality to fill a mechanic gap. Mark prototypes as placeholders until owner-approved.
 
@@ -67,3 +68,5 @@ After any roadmap item is started, update this page with status (proposed / in p
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout note)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs and menu stability)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (feet/staff/aim follow-up scope)

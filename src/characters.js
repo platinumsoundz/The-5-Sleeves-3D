@@ -1,5 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated limbs)
+
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (planted feet and hand-mounted staff)
 // Low-poly character whitebox for Ajaye and Sensei. Silhouette and clothing first; faces stay
 // deliberately simple until approved reference sheets arrive. Ajaye has no Cipher Sleeve here:
 // this is the pre-discovery training scene. Presentation only — no gameplay state lives here.
@@ -97,9 +99,9 @@ export function createFighter(kind = 'ajaye') {
     knee.position.y = -.4;
     hip.add(knee);
     knee.add(cylinder(.09, .078, .37, 6, mats.cloth, 0, -.185, 0));
-    knee.add(box(.19, .04, .31, mats.boot, 0, -.875, .045));
-    knee.add(box(.17, .13, .25, mats.boot, 0, -.8, .045));
-    knee.add(box(.12, .12, .04, mats.leather, 0, -.68, -.16));
+    knee.add(box(.19, .04, .31, mats.boot, 0, -.475, .045));
+    knee.add(box(.17, .13, .25, mats.boot, 0, -.4, .045));
+    knee.add(box(.12, .12, .04, mats.leather, 0, -.28, -.16));
     if (!sensei && side === 1) {
       const patch = box(.13, .16, .025, mats.cloth3, 0, -.2, .105);
       patch.rotation.z = .12;
@@ -165,6 +167,10 @@ export function createFighter(kind = 'ajaye') {
   const rightArm = arm(-1);
   rightArm.group.rotation.x = -1.5;
   rightArm.elbow.rotation.x = -.5;
+  const staffMount = new THREE.Group();
+  staffMount.position.set(0, -.305, 0);
+  staffMount.rotation.x = 2;
+  rightArm.elbow.add(staffMount);
   const leftArm = arm(1);
   leftArm.group.rotation.x = -.12;
 
@@ -245,8 +251,7 @@ export function createFighter(kind = 'ajaye') {
   // Padded training staff. The group origin is the grip; Game rotates the shaft on z and
   // world.js sets the guard angle on x.
   const stick = new THREE.Group();
-  stick.position.set(-.36, .22, .34);
-  upper.add(stick);
+  staffMount.add(stick);
   stick.add(cylinder(.036, .036, 2.06, 6, mats.wood, 0, .55, 0));
   for (const y of [.24, .42, .6, .78]) {
     stick.add(cylinder(.043, .043, .075, 6, mats.leather, 0, y, 0));
@@ -270,14 +275,14 @@ export function createFighter(kind = 'ajaye') {
     const c = Math.max(0, Math.min(1, crouch));
     const w = Math.max(0, Math.min(1.5, walk));
     const gait = Math.sin(phase) * .55 * w;
-    rightLeg.hip.rotation.x = -c * .85 - gait;
-    leftLeg.hip.rotation.x = -c * .85 + gait;
-    rightLeg.knee.rotation.x = c * 1.6 + Math.max(0, -gait) * .65;
-    leftLeg.knee.rotation.x = c * 1.6 + Math.max(0, gait) * .65;
+    rightLeg.hip.rotation.x = -c * 1.1 - gait;
+    leftLeg.hip.rotation.x = -c * 1.1 + gait;
+    rightLeg.knee.rotation.x = c * 2.1 + Math.max(0, -gait) * .65;
+    leftLeg.knee.rotation.x = c * 2.1 + Math.max(0, gait) * .65;
 
     leftArm.group.rotation.x = -.12 - gait * .56 - c * .22 + swing * .3 - (guard ? .48 : 0);
     leftArm.elbow.rotation.x = -.12 - Math.max(0, gait) * .45 - c * .38 - swing * .28 - (guard ? .5 : 0);
-    return -c * .27 + Math.abs(Math.sin(phase * 2)) * .012 * w;
+    return -c * .254 + Math.abs(Math.sin(phase * 2)) * .012 * w;
   }
 
   // Collapse static pieces inside each animated section. Hips, knees, shoulders, elbows and the
@@ -285,11 +290,11 @@ export function createFighter(kind = 'ajaye') {
   root.updateMatrixWorld(true);
   batchSection(visual, [upper, leftLeg.hip, rightLeg.hip]);
   batchSection(upper, [leftArm.group, rightArm.group, stick, torso]);
+  batchSection(leftArm.group, [leftArm.elbow]);
+  batchSection(leftArm.elbow, []);
+  batchSection(rightArm.group, [rightArm.elbow]);
+  batchSection(rightArm.elbow, [staffMount]);
   batchSection(stick, []);
-  for (const arm of [leftArm, rightArm]) {
-    batchSection(arm.group, [arm.elbow]);
-    batchSection(arm.elbow, []);
-  }
   for (const leg of [leftLeg, rightLeg]) {
     batchSection(leg.hip, [leg.knee]);
     batchSection(leg.knee, []);

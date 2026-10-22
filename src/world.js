@@ -1,5 +1,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated pose)
+
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim)
 // Render world: procedural settlement, character whitebox, drag-orbit camera and feedback tints.
 // Presentation only — no gameplay rules. main.js pushes feedback state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -234,21 +236,45 @@ export function createWorld(host) {
       senseiFighter.stick.rotation.x += (senseiStaffX - senseiFighter.stick.rotation.x) * Math.min(1, dt * 11);
       senseiFighter.stick.rotation.z += (senseiStaffZ - senseiFighter.stick.rotation.z) * Math.min(1, dt * 14);
 
-      const mid = p.clone().lerp(e, locked ? 0.5 : 0);
-
       // Recentre behind the lock axis shortly after the player stops dragging.
       if (locked && now - lastLook > 450) yawOffset *= Math.max(0, 1 - dt * 1.8);
-      const lockAngle = Math.atan2(p.x - e.x, p.z - e.z);
-      const angle = locked ? lockAngle + yawOffset : yaw;
-      const distance = feedback.aiming ? CONFIG.aimCameraDistance : CONFIG.cameraDistance;
-      const focus = new THREE.Vector3(mid.x, 1.18, mid.z);
-      const target = new THREE.Vector3(
-        focus.x + Math.sin(angle) * Math.cos(pitch) * distance,
-        focus.y + Math.sin(pitch) * distance,
-        focus.z + Math.cos(angle) * Math.cos(pitch) * distance
-      );
-      camera.position.lerp(target, 1 - Math.exp(-dt * 8));
-      camera.lookAt(focus);
+
+      if (feedback.aiming) {
+        // Over-the-shoulder: derive the camera from the player's facing and shoulder, not the
+        // fighter midpoint. Horizontal look is a small clamped offset that recentres.
+        const aimYaw = playerFighter.root.rotation.y + clamp(yawOffset, -.32, .32);
+        const forwardX = Math.sin(aimYaw);
+        const forwardZ = Math.cos(aimYaw);
+        const rightX = Math.cos(aimYaw);
+        const rightZ = -Math.sin(aimYaw);
+        const aimPitch = clamp(pitch - .46, -.38, .55);
+        const crouchDrop = playerCrouch * .18;
+        const aimPosition = new THREE.Vector3(
+          p.x - forwardX * CONFIG.aimCameraDistance + rightX * CONFIG.aimShoulderOffset,
+          p.y + CONFIG.aimHeight + aimPitch * .65 - crouchDrop,
+          p.z - forwardZ * CONFIG.aimCameraDistance + rightZ * CONFIG.aimShoulderOffset
+        );
+        const aimFocus = new THREE.Vector3(
+          p.x + forwardX * 8,
+          p.y + CONFIG.aimFocusHeight - aimPitch * 3.1 - crouchDrop * .65,
+          p.z + forwardZ * 8
+        );
+        camera.position.lerp(aimPosition, 1 - Math.exp(-dt * 14));
+        camera.lookAt(aimFocus);
+      } else {
+        const mid = p.clone().lerp(e, locked ? 0.5 : 0);
+        const lockAngle = Math.atan2(p.x - e.x, p.z - e.z);
+        const angle = locked ? lockAngle + yawOffset : yaw;
+        const distance = CONFIG.cameraDistance;
+        const focus = new THREE.Vector3(mid.x, 1.18, mid.z);
+        const target = new THREE.Vector3(
+          focus.x + Math.sin(angle) * Math.cos(pitch) * distance,
+          focus.y + Math.sin(pitch) * distance,
+          focus.z + Math.cos(angle) * Math.cos(pitch) * distance
+        );
+        camera.position.lerp(target, 1 - Math.exp(-dt * 8));
+        camera.lookAt(focus);
+      }
 
       const fov = feedback.aiming ? CONFIG.aimFov : CONFIG.fov;
       if (Math.abs(camera.fov - fov) > .1) {
