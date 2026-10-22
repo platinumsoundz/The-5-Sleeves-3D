@@ -4,6 +4,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
 
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim tuning)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/radar follow-up)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost)
 // Tunable prototype values. No progression or canon powers are implemented here.
 export const CONFIG = {
   // Movement
@@ -45,7 +47,7 @@ export const CONFIG = {
   roundPause: 1.2,
   arenaLimit: 11.2,
   // World slice: a training yard opening through the north gate into a wide wilderness
-  // corridor. The first tower closes the current test area.
+  // corridor. The enemy outpost closes the current test area; it is not a story tower.
   trainingHalfX: 11.2,
   trainingMaxZ: 8.2,
   gateHalf: 2.45,
@@ -53,12 +55,20 @@ export const CONFIG = {
   wildHalfX: 31,
   wildMinZ: -67,
   wildMaxZ: -13.2,
-  wildTowerZ: -61,
+  wildOutpostX: 0,
+  wildOutpostZ: -63,
+  wildOutpostReach: 6.4,
+  // Simple body radius used to keep actors out of solid scenery.
+  actorRadius: .42,
   // Wilderness raiders use the same nonlethal knockdown loop with separate stats.
   wildEnemyHp: 45,
   wildDamage: 7,
   wildSpeed: 1.05,
   wildAggro: 20,
+  // Radar follow range in world metres. Wider in the wilderness so the route and raiders
+  // are readable instead of every target sitting on the rim; the player stays centred.
+  radarRange: 24,
+  radarWildRange: 52,
   // Camera, look and touch input. Tuning placeholders until the first phone pass.
   lookSensitivity: .006,
   pitchLimit: 1.05,

@@ -4,15 +4,27 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 ## Now — protect and verify the training prototype
 
-**Current milestone:** village training, nonlethal staff sparring with Sensei, and a wilderness test route to the first tower. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
+**Current milestone:** village training, nonlethal staff sparring with Sensei, a wilderness test route to the enemy outpost, solid scenery collision, a skippable offline story opening, and one-at-a-time quest tracking on a player-following minimap. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
-**Status: training and settlement/character pass device-tested; weapons/wilderness/raider pass headless-tested only.** The owner tested the 2026-10-22 settlement/character browser build on the S23+ and reports successful play with no frame drops. The feet/staff/aim follow-up and the new weapon/wilderness/raider pass still need their own device pass. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
+**Status: training and settlement/character pass device-tested; weapons/wilderness/raider/quest/HUD/PWA and collision/story/title pass headless-tested only.** The owner tested the 2026-10-22 settlement/character browser build on the S23+ and reports successful play with no frame drops. The feet/staff/aim follow-up, weapon/wilderness/raider pass, quest/minimap pass, HUD/PWA pass and collision/story/title pass still need their own device pass. Touch-button layout remains deferred. Recheck camera/readability only when changing combat framing or the settlement. Do not tune performance or claim feel based only on headless tests.
 
 ## Weapon and wilderness test slice
 
-**Status: implemented; headless-tested; browser/device pass pending.** The north gate opens via USE/F into a bounded open route (x ≈ ±31, z −67 to −13.2) with four separate raiders, a worn track and a first-tower silhouette. D-pad left/right (or `[`/`]`, or touch `SWAP`) cycles staff → katana → unarmed → cipher test sleeve. Unarmed uses a one-button punch → kick → grab sequence; grab staggers instead of knocking down. Raiders have their own 45 HP, AI and knockdown state and do not award spar points. Reaching `z <= −61` flags the first tower and ends the current test slice. The `CIPHER SLEEVE · TEST` entry is temporary developer content: not a story acquisition, not a canon ability, and left-arm-only.
+**Status: implemented; headless-tested; browser/device pass pending.** The north gate opens via USE/F into a bounded open route (x ≈ ±31, z −67 to −13.2) with four separate raiders, a worn track and an occupied enemy outpost. D-pad left/right (or `[`/`]`, or touch `SWAP`) cycles staff → katana → unarmed → cipher test sleeve. Unarmed uses a one-button punch → kick → grab sequence; grab staggers instead of knocking down. Raiders have their own 45 HP, AI and knockdown state and do not award spar points. Reaching within 6.4m of the outpost at `(0, −63)` ends the current test slice. Reachable props publish solid colliders, so the player, Sensei and raiders stop or slide instead of walking through them. The `CIPHER SLEEVE · TEST` entry is temporary developer content: not a story acquisition, not a canon ability, and left-arm-only.
 
-**Known limits:** no melee target cycling beyond nearest living target, no raider recovery after a knockdown, no persistence of wilderness state, placeholder raider silhouettes and tower geometry, and touch layout/button tuning remains deferred. The route exists as a test slice, not approved story geography.
+**Known limits:** no melee target cycling beyond nearest living target, no raider recovery after a knockdown, no persistence of wilderness state, placeholder raider silhouettes and outpost geometry, and touch layout/button tuning remains deferred. The route exists as a test slice, not approved story geography.
+
+## Quest tracking and expanded-world map
+
+**Status: implemented; headless-tested; browser/device pass pending.** The QUESTS menu page offers three starter objectives built from existing progress hooks: reach the enemy outpost, knock down all four wilderness raiders, or win a spar. Older `first-tower` quest IDs migrate to `scout-outpost` when a save is restored. Exactly one quest can be active; selecting another replaces it, completion clears the slot and pays placeholder XP once, and the save slot restores active/completed state. The HUD radar is a player-centred follow view with a cyan arrow clamped to the rim plus a compact tracker. Both menu maps are projected from `src/worldmap.js` bounds/regions/points of interest, and the active objective is marked in cyan. Adding a region or quest is a data change.
+
+**Known limits:** three quests only; placeholder XP rewards; no quest chains, dialogue, choices, failure states, timers or canon story rewards; the map is a test-world projection without pan/zoom; menu quest cards are rebuilt only when `questVersion` changes, which is sufficient while the menu is paused.
+
+## Offline story opening and minimal title
+
+**Status: implemented; headless-tested; browser/device pass pending.** The title screen is reduced to the game title and buttons. Start/Enter opens a five-page story introduction from `src/story.js`; NEXT advances and the final page button becomes EXIT. SKIP STORY is at the top of the story box and asks for confirmation before starting. Resume bypasses the introduction. The pages are broad mood/setting text, deliberately avoiding new canon, named geography, Cipher powers or a story tower. The deck is reusable for later story events.
+
+**Known limits:** no story choices, branching, save marker for seen pages or dialogue portraits yet; the story overlay and title spacing still need a real phone/tablet render.
 
 ## Next visual milestone — make the whitebox read as a familiar settlement
 
@@ -78,3 +90,7 @@ After any roadmap item is started, update this page with status (proposed / in p
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (feet/staff/aim follow-up scope)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice status; test-only sleeve)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass status)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost, story introduction status)

@@ -3,6 +3,7 @@
 
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (over-the-shoulder aim)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid colliders, enemy outpost exposure)
 // Render world: training yard, wilderness track, character whiteboxes and raiders, camera and
 // feedback tints. Presentation only — no gameplay rules. main.js pushes state and pulse events in.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -172,6 +173,10 @@ export function createWorld(host) {
     senseiParts: senseiFighter,
     enemies,
     wilderness,
+    // Both zones share one merged list: training props sit outside the wild bounds and the
+    // distant relay/houses sit outside the yard, so zone selection is unnecessary.
+    colliders: [...ground.colliders, ...wilderness.colliders],
+    outpost: wilderness.outpost,
     camera,
     renderer,
 

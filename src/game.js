@@ -3,6 +3,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch state)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost, story introduction)
 // Sparring loop orchestrator: tutorial, movement, strikes, rounds and match completion.
 // Rules live in fighter/combat/ai/match; DOM writes live in hud.js, so this class stays
 // runnable under `node --test` with stub world, input and UI objects.
@@ -18,14 +20,17 @@ import { EventFeed } from './log.js';
 import { deleteSave, writeSave } from './save.js';
 import { redeemDevCode } from './devcodes.js';
 import { WEAPON_ORDER, UNARMED_MOVES, weaponById, cycleWeapon as nextWeapon } from './weapons.js';
+import { QuestLog, resolveQuestTarget } from './quests.js';
+import { WORLD_MAP } from './worldmap.js';
+import { resolveSolidCollisions } from './collision.js';
 
 const START = { player: 2.5, sensei: -2.5 };
 const clamp = n => Math.max(-CONFIG.arenaLimit, Math.min(CONFIG.arenaLimit, n));
 const clampRange = (n, min, max) => Math.max(min, Math.min(max, n));
 
 export class Game {
-  constructor(world, input, ui, { events = new Events() } = {}) {
-    Object.assign(this, { world, input, ui, events });
+  constructor(world, input, ui, { events = new Events(), requestStart = null } = {}) {
+    Object.assign(this, { world, input, ui, events, requestStart });
     this.hud = new Hud(ui);
     this.player = new FighterState({ needsConfirm: true });
     this.sensei = new FighterState();
@@ -49,12 +54,14 @@ export class Game {
     this.attackMove = null;
     this.unarmedStep = 0;
     this.unarmedTimer = 0;
-    this.towerReached = false;
+    this.outpostReached = false;
     this.lockTarget = null;
     this.stamina = new Resource(CONFIG.maxStamina, { regen: CONFIG.staminaRegen, delay: CONFIG.staminaDelay });
     this.sleeveAcquired = false;
     this.log = new EventFeed();
     this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.questLog = new QuestLog();
+    this.questVersion = 0;
     this.screen = 'playing';
     this.menuTab = 'status';
     this.menuFrom = 'playing';
@@ -98,7 +105,7 @@ export class Game {
     this.attackMove = null;
     this.unarmedStep = 0;
     this.unarmedTimer = 0;
-    this.towerReached = false;
+    this.outpostReached = false;
     this.lockTarget = null;
     this.world.playerParts?.setWeapon?.('staff');
     this.player.reset();
@@ -132,6 +139,8 @@ export class Game {
 
   startNew() {
     this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.questLog.reset();
+    this.questVersion += 1;
     this.log.clear();
     this.restart();
     this.log.push('Training started.', 'info');
@@ -144,6 +153,8 @@ export class Game {
       cash: save?.cash || 0,
       permissions: Array.isArray(save?.permissions) ? [...save.permissions] : []
     };
+    this.questLog.restore(save?.quests);
+    this.questVersion += 1;
   }
 
   resume(save) {
@@ -162,7 +173,8 @@ export class Game {
       tutorialDone: this.phase !== 'tutorial',
       xp: this.progress.xp,
       cash: this.progress.cash,
-      permissions: [...this.progress.permissions]
+      permissions: [...this.progress.permissions],
+      quests: this.questLog.snapshot()
     };
   }
 
@@ -219,6 +231,76 @@ export class Game {
     this.paint();
   }
 
+  get questEntries() {
+    return this.questLog.entries(this.questProgress());
+  }
+
+  get activeQuest() {
+    return this.questLog.activeQuest;
+  }
+
+  questProgress() {
+    return {
+      outpostReached: this.outpostReached,
+      raidersDefeated: this.encounters.filter(enemy => enemy.defeated).length,
+      raidersTotal: this.encounters.length,
+      sparWon: this.match.over && this.match.winner === 'player'
+    };
+  }
+
+  activeQuestTarget() {
+    const quest = this.questLog.activeQuest;
+    if (!quest) return null;
+    const nearest = this.nearestEnemy();
+    return resolveQuestTarget(quest, {
+      zone: this.zone,
+      gate: { x: 0, z: this.zone === 'wilds' ? CONFIG.wildMaxZ : -10.6 },
+      nearestRaider: nearest?.root?.position || null,
+      sensei: this.world.sensei.position
+    });
+  }
+
+  activeQuestView() {
+    const quest = this.questLog.activeQuest;
+    if (!quest) return null;
+    const point = this.activeQuestTarget();
+    const player = this.world.player.position;
+    const distance = point ? Math.hypot(point.x - player.x, point.z - player.z) : Infinity;
+    return {
+      id: quest.id,
+      title: quest.title,
+      objective: quest.objective,
+      progressLabel: quest.progress(this.questProgress()),
+      target: point ? { x: point.x, z: point.z } : null,
+      distance
+    };
+  }
+
+  selectQuest(id) {
+    if (!this.questLog.select(id)) return false;
+    const quest = this.questLog.activeQuest;
+    this.questVersion += 1;
+    this.show(`Tracking — ${quest.title}. The minimap arrow marks the route.`);
+    this.log.push(`Quest selected — ${quest.title}.`, 'info');
+    this.events.emit('quest-select', { id: quest.id, title: quest.title });
+    this.paint();
+    return true;
+  }
+
+  updateQuests() {
+    const completed = this.questLog.check(this.questProgress());
+    if (!completed) return;
+    this.questVersion += 1;
+    this.progress.xp += completed.rewardXp || 0;
+    this.show(`Quest complete — ${completed.title}. +${completed.rewardXp || 0} XP.`);
+    this.log.push(`Quest complete — ${completed.title}.`, 'good');
+    this.events.emit('quest-complete', {
+      id: completed.id,
+      title: completed.title,
+      rewardXp: completed.rewardXp || 0
+    });
+  }
+
   openMap() {
     if (this.screen === 'title' || this.screen === 'map') return;
     this.mapFrom = this.screen === 'menu' ? 'menu' : 'playing';
@@ -255,7 +337,8 @@ export class Game {
 
     if (this.screen === 'title') {
       if (this.input.consume('menu') || this.input.consume('confirm') || this.input.consume('jump')) {
-        this.startNew();
+        if (this.requestStart) this.requestStart();
+        else this.startNew();
       }
       this.paint();
       this.input.endFrame();
@@ -315,6 +398,7 @@ export class Game {
       this.advanceRound(dt);
     }
 
+    this.updateQuests();
     this.playerCombat.tick(dt);
     this.poseFighters(dt);
     this.paint();
@@ -387,8 +471,15 @@ export class Game {
     return point ? Math.hypot(point.x - player.x, point.z - player.z) : Infinity;
   }
 
-  constrainPlayer(position) {
-    const player = this.world.player;
+  colliders() {
+    return Array.isArray(this.world.colliders) ? this.world.colliders : [];
+  }
+
+  resolveCollisions(position, radius = CONFIG.actorRadius) {
+    return resolveSolidCollisions(position, radius, this.colliders());
+  }
+
+  clampActor(position) {
     if (this.zone === 'training') {
       position.x = clampRange(position.x, -CONFIG.trainingHalfX, CONFIG.trainingHalfX);
       position.z = clampRange(position.z, -10.6, CONFIG.trainingMaxZ);
@@ -396,8 +487,29 @@ export class Game {
       position.x = clampRange(position.x, -CONFIG.wildHalfX, CONFIG.wildHalfX);
       position.z = clampRange(position.z, CONFIG.wildMinZ, CONFIG.wildMaxZ);
     }
+  }
+
+  // Resolve props, then bounds, then props once more so a wall push cannot leave an actor out
+  // of the zone. Used by Sensei and knockback as well as ordinary movement.
+  settleActor(position, radius = CONFIG.actorRadius) {
+    this.resolveCollisions(position, radius);
+    this.clampActor(position);
+    this.resolveCollisions(position, radius);
+  }
+
+  constrainPlayer(position) {
+    const player = this.world.player;
+    this.settleActor(position);
     player.position.x = position.x;
     player.position.z = position.z;
+  }
+
+  constrainWildEnemy(position) {
+    position.x = clampRange(position.x, -CONFIG.wildHalfX + 2, CONFIG.wildHalfX - 2);
+    position.z = clampRange(position.z, CONFIG.wildMinZ + 1, -15);
+    this.resolveCollisions(position);
+    position.x = clampRange(position.x, -CONFIG.wildHalfX + 2, CONFIG.wildHalfX - 2);
+    position.z = clampRange(position.z, CONFIG.wildMinZ + 1, -15);
   }
 
   nearGate() {
@@ -414,7 +526,7 @@ export class Game {
       position.set(0, 0, CONFIG.wildMaxZ - 1.1);
       this.world.setZone?.('wilds');
       this.roundTimer = 0;
-      this.show('Wilderness — follow the track to the first tower.');
+      this.show('Wilderness — follow the track to the enemy outpost.');
       this.log.push('Passed through the north gate.', 'info');
       this.events.emit('zone', { zone: 'wilds' });
     } else {
@@ -433,12 +545,14 @@ export class Game {
 
   updateZone() {
     const position = this.world.player.position;
-    if (this.zone === 'wilds' && !this.towerReached && position.z <= CONFIG.wildTowerZ) {
-      this.towerReached = true;
-      this.show('First tower reached. The test slice ends here.');
-      this.log.push('Reached the first tower.', 'good');
-      this.events.emit('tower-reached', { tower: { x: 0, z: -63 } });
-    }
+    if (this.zone !== 'wilds' || this.outpostReached) return;
+    const outpost = { x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ };
+    const distance = Math.hypot(position.x - outpost.x, position.z - outpost.z);
+    if (distance > CONFIG.wildOutpostReach) return;
+    this.outpostReached = true;
+    this.show('Enemy outpost reached. The test slice ends here.');
+    this.log.push('Reached the enemy outpost.', 'good');
+    this.events.emit('outpost-reached', { outpost });
   }
 
   resetEncounters() {
@@ -449,6 +563,7 @@ export class Game {
       if (!enemy.root) continue;
       enemy.root.visible = true;
       enemy.root.position.set(enemy.home.x, 0, enemy.home.z);
+      this.constrainWildEnemy(enemy.root.position);
       enemy.root.rotation.set(0, Math.PI, 0);
     }
   }
@@ -553,8 +668,9 @@ export class Game {
       });
 
       if (intent.approach && distance > .001) {
-        point.x = clampRange(point.x + vx / distance * CONFIG.wildSpeed * dt, -CONFIG.wildHalfX + 2, CONFIG.wildHalfX - 2);
-        point.z = clampRange(point.z + vz / distance * CONFIG.wildSpeed * dt, CONFIG.wildMinZ + 1, -15);
+        point.x += vx / distance * CONFIG.wildSpeed * dt;
+        point.z += vz / distance * CONFIG.wildSpeed * dt;
+        this.constrainWildEnemy(point);
       }
       if (distance > .001) enemy.root.rotation.y = Math.atan2(vx, vz);
       const weaponNode = enemy.parts?.[enemy.weapon === 'katana' ? 'katana' : 'stick'];
@@ -576,7 +692,7 @@ export class Game {
       }
 
       const damage = this.blocking ? CONFIG.wildDamage * CONFIG.blockDamageScale : CONFIG.wildDamage;
-      const result = player.hit(damage);
+      const result = this.player.hit(damage);
       this.knockback(player, enemy.root, CONFIG.knockback);
       if (result === KNOCKDOWN) {
         this.downPlayerWild(enemy);
@@ -732,8 +848,9 @@ export class Game {
     });
 
     if (intent.approach && distance > 0.001) {
-      sensei.position.x = clamp(sensei.position.x + vx / distance * CONFIG.senseiSpeed * dt);
-      sensei.position.z = clamp(sensei.position.z + vz / distance * CONFIG.senseiSpeed * dt);
+      sensei.position.x += vx / distance * CONFIG.senseiSpeed * dt;
+      sensei.position.z += vz / distance * CONFIG.senseiSpeed * dt;
+      this.settleActor(sensei.position);
     }
     if (active && distance > 0.001) sensei.rotation.y = Math.atan2(vx, vz);
 
@@ -830,14 +947,15 @@ export class Game {
     const dx = target.position.x - source.position.x;
     const dz = target.position.z - source.position.z;
     const length = Math.hypot(dx, dz) || 1;
-    const nextX = target.position.x + dx / length * amount;
-    const nextZ = target.position.z + dz / length * amount;
-    if (this.zone === 'training') {
-      target.position.x = clampRange(nextX, -CONFIG.trainingHalfX, CONFIG.trainingHalfX);
-      target.position.z = clampRange(nextZ, -10.6, CONFIG.trainingMaxZ);
-    } else {
-      target.position.x = clampRange(nextX, -CONFIG.wildHalfX, CONFIG.wildHalfX);
-      target.position.z = clampRange(nextZ, CONFIG.wildMinZ, CONFIG.wildMaxZ);
+    target.position.x += dx / length * amount;
+    target.position.z += dz / length * amount;
+
+    if (target === this.world.player) this.constrainPlayer(target.position);
+    else if (target === this.world.sensei) this.settleActor(target.position);
+    else {
+      const raider = this.encounters.find(enemy => enemy.root === target);
+      if (raider) this.constrainWildEnemy(target.position);
+      else this.settleActor(target.position);
     }
   }
 
@@ -882,10 +1000,11 @@ export class Game {
       ? !!target?.ai?.windingUp
       : this.ai.windingUp;
     const weapon = weaponById(this.weapon);
+    const activeQuest = this.activeQuestView();
     const prompt = this.phase === 'result'
       ? 'Spar complete — use RESTART PRACTICE to spar again.'
-      : this.towerReached
-        ? 'First tower reached — the wilderness test slice ends here.'
+      : this.outpostReached
+        ? 'Enemy outpost reached — the wilderness test slice ends here.'
         : this.nearGate()
           ? 'USE / F: pass through the north gate.'
           : this.input.controlHints(this.phase, this.player.isDown ? this.player.down : 0);
@@ -903,7 +1022,7 @@ export class Game {
       message: this.message ?? '',
       prompt,
       device: this.input.deviceLabel(),
-      touch: this.input.device === 'touch',
+      touch: this.input.touchUI ?? this.input.device === 'touch',
       aiming: this.aiming,
       paused: this.screen !== 'playing',
       result: this.resultText,
@@ -926,7 +1045,7 @@ export class Game {
       weaponShort: weapon.short,
       weaponTest: weapon.testOnly === true,
       zone: this.zone,
-      towerReached: this.towerReached,
+      outpostReached: this.outpostReached,
       feed: this.log.items,
       player: { x: player.position.x, z: player.position.z, yaw: player.rotation.y },
       sensei: { x: sensei.position.x, z: sensei.position.z },
@@ -937,6 +1056,9 @@ export class Game {
         z: enemy.root?.position?.z ?? enemy.home.z,
         alive: !enemy.defeated
       })),
+      activeQuest,
+      map: { bounds: WORLD_MAP.bounds, regions: WORLD_MAP.regions, points: WORLD_MAP.points },
+      radarRange: this.zone === 'wilds' ? CONFIG.radarWildRange : CONFIG.radarRange,
       arena: this.zone === 'wilds' ? 70 : CONFIG.arenaLimit
     });
   }

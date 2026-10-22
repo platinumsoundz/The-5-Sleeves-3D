@@ -2,9 +2,11 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (sleeve HUD gating)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
 // Every DOM write lives here so Game stays testable without a document. Elements are injected,
 // never queried, and optional ones are tolerated for older shells.
 import { radarOffset } from './radar.js';
+import { projectMapPoint } from './worldmap.js';
 
 export class Hud {
   constructor(elements) { this.el = elements; }
@@ -68,7 +70,7 @@ export class Hud {
     // Radar: the player sits at the centre facing up; Sensei is projected relative to them.
     if (el.radarSensei && state.player && state.sensei) {
       el.radarSensei.hidden = state.zone === 'wilds';
-      const spot = radarOffset(state.player, state.player.yaw, state.sensei, state.arena || 6, 40);
+      const spot = radarOffset(state.player, state.player.yaw, state.sensei, state.radarRange || 24, 32);
       el.radarSensei.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
       el.radarSensei.classList?.toggle('off', spot.clamped);
     }
@@ -79,20 +81,49 @@ export class Hud {
         const show = state.zone === 'wilds' && enemy && enemy.alive;
         node.hidden = !show;
         if (!show) return;
-        const spot = radarOffset(state.player, state.player.yaw, enemy, 24, 40);
+        const spot = radarOffset(state.player, state.player.yaw, enemy, state.radarRange || 24, 32);
         node.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
         node.classList?.toggle('off', spot.clamped);
       });
     }
 
-    // Larger maps stay north-up so the training ground is easy to read.
-    if (el.mapPlayers || el.mapSenseis) {
+    // The radar is a follow view: the player is always at the centre and the active quest
+    // arrow is projected from the player's live position, clamped to the rim when far away.
+    if (el.radarQuest) {
+      const quest = state.activeQuest;
+      const target = quest?.target;
+      el.radarQuest.hidden = !target || !state.player;
+      if (target && state.player) {
+        const spot = radarOffset(state.player, state.player.yaw, target, state.radarRange || 24, 32);
+        const angle = Math.atan2(spot.x, -spot.y) * 180 / Math.PI;
+        el.radarQuest.style.transform = `translate(${spot.x}px, ${spot.y}px) rotate(${angle}deg)`;
+        el.radarQuest.classList?.toggle('off', spot.clamped);
+        el.radarQuest.setAttribute?.('aria-label', `Tracked quest: ${quest.title}`);
+      }
+    }
+
+    if (el.quest) {
+      const quest = state.activeQuest;
+      el.quest.hidden = !quest;
+      if (quest) {
+        if (el.questTitle) el.questTitle.textContent = quest.title;
+        if (el.questDistance) {
+          el.questDistance.textContent = Number.isFinite(quest.distance)
+            ? `${Math.max(0, Math.round(quest.distance))}m`
+            : '—';
+        }
+        if (el.questProgress) el.questProgress.textContent = quest.progressLabel || quest.objective || '';
+      }
+    }
+
+    // The larger maps stay north-up. Their projection uses WORLD_MAP bounds rather than an
+    // arena radius, so adding a new region only requires extending the data catalogue.
+    if (el.mapPlayers || el.mapSenseis || el.mapQuests) {
+      const bounds = state.map?.bounds;
       const place = (node, point) => {
-        const x = 50 + (point.x / (state.arena || 6)) * 42;
-        // North is negative z (the gate and tower lie up-screen), so flip the depth axis.
-        const y = 50 + (point.z / (state.arena || 6)) * 42;
-        node.style.left = `${x}%`;
-        node.style.top = `${y}%`;
+        const spot = projectMapPoint(point, bounds);
+        node.style.left = `${spot.left}%`;
+        node.style.top = `${spot.top}%`;
       };
       for (const node of el.mapPlayers || []) place(node, state.player);
       for (const node of el.mapSenseis || []) place(node, state.sensei);
@@ -100,6 +131,11 @@ export class Hud {
         const enemy = state.enemies?.[index];
         node.hidden = !enemy || !enemy.alive;
         if (enemy) place(node, enemy);
+      }
+      const questTarget = state.activeQuest?.target;
+      for (const node of el.mapQuests || []) {
+        node.hidden = !questTarget;
+        if (questTarget) place(node, questTarget);
       }
     }
 

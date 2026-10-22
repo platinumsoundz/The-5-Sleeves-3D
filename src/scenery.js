@@ -1,10 +1,12 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
-// Procedural settlement training yard plus the wilderness track and first-tower silhouette.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost)
+// Procedural settlement training yard plus the wilderness track and enemy-outpost silhouette.
 // Everything is built from low-poly primitives, shared materials and canvas textures so the
-// scene stays cheap on a phone. Presentation only: no collisions, story triggers or gameplay
-// state live here.
+// scene stays cheap on a phone. Presentation plus simple collider data: story triggers and
+// gameplay state still live outside this module.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { circleCollider, boxCollider } from './collision.js';
 
 const C = {
   ground: 0x6d735f,
@@ -174,7 +176,7 @@ function addHills(scene) {
 
 function addGround(scene) {
   const texture = groundTexture();
-  // The ground and sky must cover the wilderness route past the first tower at z -63,
+  // The ground and sky must cover the wilderness route past the enemy outpost at z -63,
   // not just the original training-yard footprint.
   texture.repeat.set(27, 27);
   const ground = new THREE.Mesh(
@@ -522,7 +524,7 @@ function addStaffRack(scene) {
   }
 }
 
-function addTrees(scene) {
+function addTrees(scene, colliders) {
   const random = rng(5521);
   const positions = [
     [-14.5, -10.5, 1.15], [14.8, -9.6, 1.05], [-16.8, 4.8, .92],
@@ -536,55 +538,67 @@ function addTrees(scene) {
     canopyA.scale.set(1.15, .9, 1);
     sphere(tree, .62 * scale, mat(C.treeDark), -.42 * scale, 1.95 * scale, .12 * scale, 7);
     sphere(tree, .57 * scale, mat(C.tree), .45 * scale, 1.82 * scale, -.1 * scale, 7);
+    colliders.push(circleCollider(x, z, .3 * scale));
   }
   for (let i = 0; i < 10; i++) {
     const angle = random() * Math.PI * 2;
     const radius = 8 + random() * 8;
-    const bush = mesh(new THREE.IcosahedronGeometry(.32 + random() * .3, 0), mat(C.oliveDark), Math.sin(angle) * radius, .2, Math.cos(angle) * radius);
+    const size = .32 + random() * .3;
+    const bush = mesh(new THREE.IcosahedronGeometry(size, 0), mat(C.oliveDark), Math.sin(angle) * radius, .2, Math.cos(angle) * radius);
     bush.scale.y = .7;
     scene.add(bush);
+    colliders.push(circleCollider(bush.position.x, bush.position.z, size * .72));
   }
 }
 
-function addDistantStructure(scene) {
-  const tower = group(scene, -18.5, 0, -21);
+function addDistantStructure(scene, colliders) {
+  const relay = group(scene, -18.5, 0, -21);
   for (const x of [-1.4, 1.4]) {
-    for (const z of [-1.4, 1.4]) cylinder(tower, .12, .18, 7.2, 5, mat(C.metalDark), x, 3.6, z);
+    for (const z of [-1.4, 1.4]) cylinder(relay, .12, .18, 7.2, 5, mat(C.metalDark), x, 3.6, z);
   }
   for (const y of [2.3, 4.6]) {
-    box(tower, 3.2, .1, .1, mat(C.metalDark), 0, y, -1.4);
-    box(tower, .1, .1, 3.2, mat(C.metalDark), -1.4, y, 0);
+    box(relay, 3.2, .1, .1, mat(C.metalDark), 0, y, -1.4);
+    box(relay, .1, .1, 3.2, mat(C.metalDark), -1.4, y, 0);
   }
-  cylinder(tower, 2.15, 2.15, 2.5, 12, mat(C.metal), 0, 8.1, 0);
-  cylinder(tower, 2.25, 2.25, .16, 12, mat(C.metalDark), 0, 9.4, 0);
-  cylinder(tower, .2, 2.2, 1.4, 12, mat(C.metalDark), 0, 10.15, 0);
+  cylinder(relay, 2.15, 2.15, 2.5, 12, mat(C.metal), 0, 8.1, 0);
+  cylinder(relay, 2.25, 2.25, .16, 12, mat(C.metalDark), 0, 9.4, 0);
+  cylinder(relay, .2, 2.2, 1.4, 12, mat(C.metalDark), 0, 10.15, 0);
   for (let i = 0; i < 8; i++) {
-    box(tower, .08, .08, 2.6, mat(C.metalDark), 0, 3 + i * .55, 1.55);
+    box(relay, .08, .08, 2.6, mat(C.metalDark), 0, 3 + i * .55, 1.55);
   }
+  colliders.push(boxCollider(-18.5, -21, 1.75, 1.75));
 
   const mast = group(scene, 19, 0, -18);
   cylinder(mast, .09, .16, 10.5, 5, mat(C.metalDark), 0, 5.25, 0);
   for (const y of [5.8, 7.3, 8.7]) box(mast, 2.2, .06, .06, mat(C.metalDark), 0, y, 0);
   box(mast, .06, .06, 1.4, mat(C.metalDark), 0, 9.5, 0);
   cylinder(mast, .035, .035, .5, 5, mat(C.metal), 0, 10.5, 0);
+  colliders.push(circleCollider(19, -18, .28));
 
   const random = rng(8842);
   for (let i = 0; i < 7; i++) {
     const angle = random() * Math.PI * 2;
     const radius = 24 + random() * 11;
-    const house = group(scene, Math.sin(angle) * radius, 0, Math.cos(angle) * radius, random() * Math.PI);
-    box(house, 3 + random() * 2, 2 + random() * 1.3, 3 + random() * 2, mat(i % 2 ? C.woodPale : C.oliveDark), 0, 1.2, 0);
+    const x = Math.sin(angle) * radius;
+    const z = Math.cos(angle) * radius;
+    const rotation = random() * Math.PI;
+    const width = 3 + random() * 2;
+    const depth = 3 + random() * 2;
+    const house = group(scene, x, 0, z, rotation);
+    box(house, width, 2 + random() * 1.3, depth, mat(i % 2 ? C.woodPale : C.oliveDark), 0, 1.2, 0);
     const roof = box(house, 3.6, .18, 3.6, mat(C.metalDark), 0, 2.55, 0);
     roof.rotation.z = (random() - .5) * .1;
+    colliders.push(boxCollider(x, z, width / 2, depth / 2, rotation));
   }
 }
 
 function addWilderness(scene) {
   const random = rng(77421);
+  const colliders = [];
   const pathMat = mat(C.path, { flatShading: false });
   const earthMat = mat(C.earth, { flatShading: false });
 
-  // Worn track running from the training gate toward the first tower.
+  // Worn track running from the training gate toward the enemy outpost.
   for (let z = -12.2; z > -66; z -= 3.2) {
     const width = 2.6 + random() * 1.2;
     const segment = box(scene, width, .018, 3.5, pathMat, Math.sin(z * .07) * 1.15, .014, z, 0, random() * .08 - .04, 0);
@@ -613,15 +627,21 @@ function addWilderness(scene) {
     const x = side * (7.5 + random() * 15);
     const post = cylinder(scene, .04, .07, .55 + random() * .8, 5, mat(C.woodDark), x, .28, z);
     post.rotation.z = (random() - .5) * .35;
+    colliders.push(circleCollider(x, z, .12));
   }
   for (let i = 0; i < 22; i++) {
     const x = (random() - .5) * 54;
     const z = -18 - random() * 43;
-    const rock = mesh(new THREE.DodecahedronGeometry(.35 + random() * 1.4, 0), mat(random() > .4 ? 0x5e645b : 0x77705f));
+    const base = .35 + random() * 1.4;
+    const rock = mesh(new THREE.DodecahedronGeometry(base, 0), mat(random() > .4 ? 0x5e645b : 0x77705f));
     rock.position.set(x, -.02, z);
-    rock.scale.set(1 + random(), .55 + random() * .45, .8 + random() * .8);
+    const sx = 1 + random();
+    const sy = .55 + random() * .45;
+    const sz = .8 + random() * .8;
+    rock.scale.set(sx, sy, sz);
     rock.rotation.set(random(), random() * Math.PI, random());
     scene.add(rock);
+    colliders.push(circleCollider(x, z, Math.max(.22, base * Math.max(sx, sz) * .62)));
   }
 
   // Sparse dead trees keep sightlines open.
@@ -635,38 +655,55 @@ function addWilderness(scene) {
       const branch = box(tree, .05, .75, .05, mat(C.woodDark), (random() - .5) * .9, 1.5 + random() * .7, (random() - .5) * .5);
       branch.rotation.z = (random() - .5) * 1.1;
     }
+    colliders.push(circleCollider(x, z, .24));
   }
 
-  // First tower silhouette: a practical relay/guard structure, not a fantasy spire.
-  const tower = group(scene, 0, 0, -63);
+  // Enemy outpost silhouette: a practical scavenger-held relay/guard structure, not a story
+  // tower. The geometry stays as the wilderness landmark and end-of-slice marker.
+  const outpost = group(scene, 0, 0, -63);
   for (const x of [-2.2, 2.2]) {
-    for (const z of [-2.2, 2.2]) cylinder(tower, .18, .28, 11.5, 6, mat(C.metalDark), x, 5.75, z);
+    for (const z of [-2.2, 2.2]) cylinder(outpost, .18, .28, 11.5, 6, mat(C.metalDark), x, 5.75, z);
   }
   for (const y of [3.4, 6.7, 9.8]) {
-    box(tower, 5.1, .12, .12, mat(C.metalDark), 0, y, -2.2);
-    box(tower, .12, .12, 5.1, mat(C.metalDark), -2.2, y, 0);
-    box(tower, 5.1, .12, .12, mat(C.metalDark), 0, y, 2.2);
+    box(outpost, 5.1, .12, .12, mat(C.metalDark), 0, y, -2.2);
+    box(outpost, .12, .12, 5.1, mat(C.metalDark), -2.2, y, 0);
+    box(outpost, 5.1, .12, .12, mat(C.metalDark), 0, y, 2.2);
   }
-  box(tower, 6.8, .18, 6.8, mat(C.metal), 0, 11.35, 0);
-  box(tower, 5.6, .85, 5.6, mat(C.oliveDark), 0, 11.9, 0);
+  box(outpost, 6.8, .18, 6.8, mat(C.metal), 0, 11.35, 0);
+  box(outpost, 5.6, .85, 5.6, mat(C.oliveDark), 0, 11.9, 0);
   const beaconMat = mat(0x6de6dd, { emissive: 0x2fa7a5, emissiveIntensity: 2.2, flatShading: false });
-  cylinder(tower, .55, .72, 1.0, 8, mat(C.metalDark), 0, 12.8, 0);
-  const beacon = sphere(tower, .22, beaconMat, 0, 13.45, 0, 7);
+  cylinder(outpost, .55, .72, 1.0, 8, mat(C.metalDark), 0, 12.8, 0);
+  const beacon = sphere(outpost, .22, beaconMat, 0, 13.45, 0, 7);
   for (let i = 0; i < 4; i++) {
     const angle = i * Math.PI / 2;
-    box(tower, .1, 1.8, .1, mat(C.metalDark), Math.sin(angle) * 2.8, 12.05, Math.cos(angle) * 2.8);
+    box(outpost, .1, 1.8, .1, mat(C.metalDark), Math.sin(angle) * 2.8, 12.05, Math.cos(angle) * 2.8);
   }
-  box(tower, 1.2, 2.5, .1, mat(C.metalDark), 0, 1.25, -2.25);
-  box(tower, .7, 1.1, .05, mat(C.window), 0, 1.8, -2.31);
+  box(outpost, 1.2, 2.5, .1, mat(C.metalDark), 0, 1.25, -2.25);
+  box(outpost, .7, 1.1, .05, mat(C.window), 0, 1.8, -2.31);
 
-  // A visible end-of-slice marker and a small supply cache at the tower.
+  // Scavenger banner and barricade marks read as an occupied outpost rather than a clean tower.
+  box(outpost, 1.7, 1.0, .035, mat(C.canvasRust), 0, 6.0, 2.25);
+  box(outpost, 1.9, .07, .06, mat(C.metalDark), 0, 6.55, 2.23);
+  for (const side of [-1, 1]) {
+    box(scene, .12, .9, 1.6, mat(C.woodDark), side * 4.7, .45, -60.6, 0, side * .22, 0);
+    colliders.push(boxCollider(side * 4.7, -60.6, .12, .8, side * .22));
+  }
+  colliders.push(boxCollider(0, -63, 3.35, 3.35));
+
+  // A visible end-of-slice marker and a small supply cache at the outpost.
   box(scene, 4.2, .02, 3.8, earthMat, 0, .012, -59.2);
   crate(scene, -2.6, -59.8, .55, .2);
   crate(scene, 2.3, -59.2, .45, -.3);
   barrel(scene, 2.9, -60.2, .8);
+  colliders.push(
+    circleCollider(-2.6, -59.8, .35),
+    circleCollider(2.3, -59.2, .3),
+    circleCollider(2.9, -60.2, .36)
+  );
 
   return {
-    tower: { x: 0, z: -63 },
+    colliders,
+    outpost: { x: 0, z: -63 },
     enemySpawns: [
       { id: 'raider-1', x: -5.5, z: -22.5, weapon: 'staff', name: 'RAIDER · SCAVENGER' },
       { id: 'raider-2', x: 6.5, z: -33, weapon: 'katana', name: 'RAIDER · BLADE' },
@@ -751,11 +788,12 @@ export function buildTrainingGround(scene) {
   const fans = [];
   const cloths = [];
   const smoke = [];
+  const colliders = [];
 
   addSky(scene);
   addHills(scene);
   addGround(scene);
-  addDistantStructure(scene);
+  addDistantStructure(scene, colliders);
 
   fenceRun(scene, -12, -11.4, -2.75, -11.4);
   fenceRun(scene, 2.75, -11.4, 12, -11.4);
@@ -771,7 +809,7 @@ export function buildTrainingGround(scene) {
   addFan(scene, fans);
   addLaundry(scene, cloths);
   addStaffRack(scene);
-  addTrees(scene);
+  addTrees(scene, colliders);
   const dust = addDust(scene);
 
   crate(scene, 5.4, 5.9, .52, .22);
@@ -783,9 +821,46 @@ export function buildTrainingGround(scene) {
   sack(scene, 7.2, 5.7, .85);
   sack(scene, 8.8, -2.5, .72);
 
+  // Solid footprints for the reachable yard. Fences sit outside the player's bounds, so the
+  // gate posts are the only fence pieces that need collision here.
+  colliders.push(
+    boxCollider(-8.7, -5.3, 2.2, 2.0, .34),
+    boxCollider(9.4, -6.6, 2.05, 2.35, -.3),
+    boxCollider(-8.4, 5.0, 1.9, 1.4, -.2),
+    boxCollider(-10.4, 1.2, 1.1, 2.2, .18),
+    circleCollider(7.4, 4.7, .62),
+    circleCollider(5.8, -3.4, .5),
+    boxCollider(-6.0, -3.0, .95, .22),
+    circleCollider(-2.55, -11.4, .45),
+    circleCollider(2.55, -11.4, .45),
+    circleCollider(5.4, 5.9, .34),
+    circleCollider(9.3, 1.15, .31),
+    circleCollider(-4.1, -8.0, .4),
+    circleCollider(10.2, 6.2, .27),
+    circleCollider(6.7, 2.1, .38),
+    circleCollider(-9.9, 3.9, .42),
+    circleCollider(7.2, 5.7, .29),
+    circleCollider(8.8, -2.5, .25)
+  );
+
+  // Laundry posts and the eight small training-ring posts are solid too.
+  const laundryRot = Math.atan2(4.2, -.15);
+  for (const localZ of [-2.2, 2.2]) {
+    colliders.push(circleCollider(
+      8.2 + Math.sin(laundryRot) * localZ,
+      3.4 + Math.cos(laundryRot) * localZ,
+      .12
+    ));
+  }
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 + .2;
+    colliders.push(circleCollider(Math.sin(angle) * 6.45, Math.cos(angle) * 6.45, .11));
+  }
+
   batchStatic(scene);
 
   return {
+    colliders,
     update(now, dt) {
       const time = now * .001;
       for (const fan of fans) fan.rotation.z += dt * 1.6;

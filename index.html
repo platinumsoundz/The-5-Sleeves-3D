@@ -3,7 +3,10 @@
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass) -->
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass) -->
 <!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice) -->
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#141b19"><title>The 5 Sleeves — Training Ground &amp; Wilderness</title><link rel="stylesheet" href="src/styles.css"></head><body>
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass) -->
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up) -->
+<!-- ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost, story introduction) -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#141b19"><meta name="color-scheme" content="dark"><meta name="application-name" content="The 5 Sleeves"><meta name="description" content="A nonlethal 3D training-ground and wilderness prototype."><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="5 Sleeves"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png"><title>The 5 Sleeves — Training Ground &amp; Wilderness</title><link rel="stylesheet" href="src/styles.css"></head><body>
 <main id="game">
   <div id="hud">
     <section id="vitals" aria-label="Vitals">
@@ -11,17 +14,25 @@
       <div class="vital"><b>STAMINA</b><div class="bar stamina"><i id="player-stamina"></i></div></div>
       <div class="vital" id="sleeve-vital" hidden><b>SLEEVE</b><div class="bar sleeve"><i id="sleeve-charge"></i></div></div>
     </section>
-    <div id="radar" role="button" tabindex="0" aria-label="Radar — open map">
+    <div id="radar" role="button" tabindex="0" aria-label="Minimap — you are centred; open map">
       <div class="radar-ring"></div><div class="radar-cross"></div>
       <i id="radar-player" class="radar-dot player"></i>
       <i id="radar-sensei" class="radar-dot sensei"></i>
+      <i id="radar-quest" class="radar-quest" hidden aria-label="Tracked quest"></i>
       <i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i><i class="radar-dot raider" hidden></i>
+    </div>
+    <div id="quest" hidden aria-live="polite">
+      <span>TRACKING</span><b id="quest-title"></b><i id="quest-progress"></i><em id="quest-distance"></em>
     </div>
     <div id="feed" role="log" aria-live="polite" aria-label="Event feed">
       <div class="feed-line" hidden></div><div class="feed-line" hidden></div><div class="feed-line" hidden></div>
       <div class="feed-line" hidden></div><div class="feed-line" hidden></div><div class="feed-line" hidden></div>
     </div>
-    <button id="pause" data-action="menu" type="button" aria-label="Open menu">☰ MENU</button>
+    <div id="top-actions">
+      <button id="pause" data-action="menu" type="button" aria-label="Open menu">☰ MENU</button>
+      <button id="skip" type="button">SKIP TUTORIAL</button>
+      <button id="restart" type="button" hidden>RESTART PRACTICE</button>
+    </div>
     <div id="score">○○○ — ○○○</div>
     <div id="weapon">STAFF</div>
     <div class="status"><div><b id="target-name">SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
@@ -30,8 +41,6 @@
     <div id="warning" role="status" aria-label="Sensei is winding up" hidden>!</div>
     <div id="prompt"></div>
     <div id="message" role="status"></div>
-    <button id="skip" type="button">SKIP TUTORIAL</button>
-    <button id="restart" type="button" hidden>RESTART PRACTICE</button>
     <div id="result" hidden></div>
   </div>
 
@@ -54,16 +63,43 @@
 
   <div id="title" role="dialog" aria-label="Title screen" hidden>
     <div class="title-card">
-      <p class="eyebrow">A TRAINING GROUND PROTOTYPE</p>
       <h1>THE <span>5</span> SLEEVES</h1>
-      <p class="tagline">One teacher. One lesson. No lethal blows.</p>
       <div class="title-actions">
-        <button id="start" type="button">START TRAINING</button>
+        <button id="start" type="button">START</button>
         <button id="resume" type="button" disabled>RESUME</button>
+        <button id="install" type="button" hidden>INSTALL APP</button>
         <button id="title-settings" class="ghost" type="button">SETTINGS</button>
         <button id="multiplayer" type="button" disabled>MULTIPLAYER · IN DEVELOPMENT</button>
       </div>
-      <p class="version">Nonlethal spar · wilderness slice · first to 3 knockdowns</p>
+    </div>
+  </div>
+
+  <div id="story" role="dialog" aria-modal="true" aria-labelledby="story-title" hidden>
+    <div class="story-card">
+      <header class="story-head">
+        <div>
+          <p class="eyebrow">OFFLINE STORY MODE</p>
+          <span id="story-page-count">01 / 05</span>
+        </div>
+        <button id="story-skip" class="ghost" type="button">SKIP STORY</button>
+      </header>
+      <div class="story-copy">
+        <p id="story-kicker" class="eyebrow"></p>
+        <h2 id="story-title"></h2>
+        <div id="story-body"></div>
+      </div>
+      <footer class="story-foot">
+        <span class="story-hint">Read at your own pace. The yard will wait.</span>
+        <button id="story-next" type="button">NEXT</button>
+      </footer>
+      <div id="story-confirm" class="story-confirm" role="alertdialog" aria-modal="true" aria-labelledby="story-confirm-title" hidden>
+        <h3 id="story-confirm-title">SKIP THE STORY?</h3>
+        <p class="muted">You will go straight to the training yard. This only skips the introduction, not the game.</p>
+        <div class="button-row">
+          <button id="story-confirm-skip" type="button">SKIP STORY</button>
+          <button id="story-confirm-cancel" class="ghost" type="button">KEEP READING</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -76,7 +112,7 @@
       <nav id="menu-tabs" aria-label="Menu pages">
         <button type="button" data-tab="status" class="active">CHARACTER</button>
         <button type="button" data-tab="gear">INVENTORY</button>
-        <button type="button" data-tab="skills">SKILLS</button>
+        <button type="button" data-tab="quests">QUESTS</button>
         <button type="button" data-tab="map">MAP</button>
         <button type="button" data-tab="controls">SETTINGS</button>
         <button type="button" data-tab="system">SYSTEM</button>
@@ -102,27 +138,27 @@
           <div class="gear-slot"><span>TEST SLOT</span><b>Cipher Sleeve · TEST</b><em>Temporary developer test asset — not story acquisition, not canon gear</em></div>
           <div class="gear-slot"><span>UNARMED</span><b>Punch → kick → grab</b><em>Grab staggers; knockdowns remain nonlethal</em></div>
           <h3>INVENTORY</h3>
-          <p class="muted">Prototype arsenal only. The first tower and wilderness raiders are test content; item pickups and canon upgrades are not implemented.</p>
+          <p class="muted">Prototype arsenal only. The enemy outpost and wilderness raiders are test content; item pickups and canon upgrades are not implemented.</p>
         </section>
 
-        <section data-page="skills" hidden>
-          <h3>SKILL TREE</h3>
-          <p class="muted">No skill points are awarded in this build, so every branch is dormant. Abilities will not be invented before the canon review.</p>
-          <div class="skill-branches">
-            <div class="skill-branch"><b>STAFF</b><span>Foundation</span><i>locked</i></div>
-            <div class="skill-branch"><b>BODY</b><span>Footwork</span><i>locked</i></div>
-            <div class="skill-branch"><b>SLEEVE</b><span>Unwritten</span><i>locked</i></div>
-          </div>
+        <section data-page="quests" hidden>
+          <h3>QUEST LOG</h3>
+          <p class="muted">Choose one quest to track. Only one can be active at a time; its objective is marked by the arrow on the minimap. Progress is kept in the save slot.</p>
+          <div id="quest-list" class="quest-list" role="list"></div>
+          <p class="muted">Quest objectives use the existing nonlethal rules. Wilderness raiders stay down when knocked out; Sensei still recovers between spar rounds.</p>
         </section>
 
         <section data-page="map" hidden>
           <h3>TRAINING GROUND &amp; WILDERNESS</h3>
           <div id="tabmap" class="map-square" aria-label="Training ground and wilderness map">
+            <div class="map-regions" aria-hidden="true"></div>
+            <div class="map-pois" aria-hidden="true"></div>
             <div class="map-ring"></div>
             <i class="mapdot player"></i><i class="mapdot sensei"></i>
+            <i class="mapdot quest" hidden></i>
             <i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i>
           </div>
-          <p class="muted">North-up. Gold is you, red is Sensei, orange raiders patrol the wilderness. Select / Tab opens the full map.</p>
+          <p class="muted">North-up, world-scaled and ready for more regions. Gold is you, red is Sensei, orange raiders patrol the wilderness, cyan is the tracked quest. Select / Tab opens the full map.</p>
           <button id="open-map" type="button">OPEN FULL MAP</button>
         </section>
 
@@ -158,6 +194,10 @@
           <p class="muted">Codes granted here are stored in the save slot. XP, cash, and gear are still placeholders.</p>
           <div class="code-row"><input id="devcode" type="text" placeholder="DEV-…" autocomplete="off" spellcheck="false"><button id="devapply" type="button">APPLY</button></div>
           <p id="devresult" role="status"></p>
+          <h3>PERFORMANCE READOUT</h3>
+          <p class="muted"><b>60 FPS · 277 draws · 27k tris</b> means 60 frames per second, 277 draw calls and roughly 27,000 triangles rendered in the last second. Draw calls and triangles describe scene complexity; FPS changing while the camera or characters move is normal.</p>
+          <h3>INSTALL</h3>
+          <p class="muted" id="install-hint">On Android, use the browser menu or the INSTALL button on the title screen. On iPhone/iPad, open Share → Add to Home Screen. The game then launches full-screen like an app.</p>
           <h3>MULTIPLAYER</h3>
           <p class="muted">In development — not available in this build. This is a single-player test slice.</p>
           <p class="version">Pre-Cipher training ground · wilderness test slice</p>
@@ -169,14 +209,14 @@
   <div id="map-screen" role="dialog" aria-label="Map" hidden>
     <header class="menu-head"><div><p class="eyebrow">TRAINING GROUND &amp; WILDERNESS</p><h2>MAP</h2></div><button id="map-close" type="button">CLOSE</button></header>
     <div id="bigmap" class="map-square">
+      <div class="map-regions" aria-hidden="true"></div>
+      <div class="map-pois" aria-hidden="true"></div>
       <div class="map-ring"></div>
-      <span class="map-label north">FIRST TOWER</span>
-      <span class="map-label mid">WILDERNESS</span>
-      <span class="map-label south">TRAINING YARD</span>
       <i class="mapdot player"></i><i class="mapdot sensei"></i>
+      <i class="mapdot quest" hidden></i>
       <i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i>
     </div>
-    <p class="muted">Gold is you, red is Sensei, orange raiders hold the route to the first tower. USE / F at the north gate enters the wilderness.</p>
+    <p class="muted">Gold is you, red is Sensei, orange raiders hold the route to the enemy outpost, cyan marks the tracked quest. USE / F at the north gate enters the wilderness.</p>
   </div>
 
   <div id="loading">Preparing training ground &amp; wilderness…</div>

@@ -4,6 +4,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (performance readout)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (articulated crouch feedback)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost, story introduction)
 // Entry point: scene creation, settings/menu chrome and browser input live in separate modules.
 import { createWorld } from './world.js';
 import { Game } from './game.js';
@@ -11,6 +13,8 @@ import { Input } from './input.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { BINDING_ACTIONS, ACTION_LABELS, loadBindings, saveBindings, rebind } from './bindings.js';
 import { loadSave } from './save.js';
+import { WORLD_MAP, projectMapBounds, projectMapPoint } from './worldmap.js';
+import { StoryDeck } from './story.js';
 
 const $ = query => document.querySelector(query);
 const $$ = query => [...document.querySelectorAll(query)];
@@ -29,17 +33,20 @@ const game = new Game(world, input, {
   pause: $('#pause'), settings: $('#settings'), loading: $('#loading'),
   hud: $('#hud'), title: $('#title'), resume: $('#resume'),
   feedLines: $$('#feed .feed-line'), radarSensei: $('#radar-sensei'), radarEnemies: $$('.radar-dot.raider'),
+  radarQuest: $('#radar-quest'),
+  quest: $('#quest'), questTitle: $('#quest-title'), questProgress: $('#quest-progress'),
+  questDistance: $('#quest-distance'),
   mapScreen: $('#map-screen'), mapPlayers: $$('.mapdot.player'), mapSenseis: $$('.mapdot.sensei'),
-  mapEnemies: $$('.mapdot.raider'),
+  mapEnemies: $$('.mapdot.raider'), mapQuests: $$('.mapdot.quest'),
   menuPages: {
     status: $('[data-page="status"]'), gear: $('[data-page="gear"]'),
-    skills: $('[data-page="skills"]'), map: $('[data-page="map"]'),
+    quests: $('[data-page="quests"]'), map: $('[data-page="map"]'),
     controls: $('[data-page="controls"]'), system: $('[data-page="system"]')
   },
   menuTabs: $$('#menu-tabs [data-tab]'), menuResume: $('#menu-resume'),
   statXp: $('#stat-xp'), statCash: $('#stat-cash'), statTutorial: $('#stat-tutorial'),
   statPerms: $('#stat-perms'), statScore: $('#stat-score'), saveStatus: $('#save-status')
-});
+}, { requestStart: () => openStory() });
 window.__trainingReady = true;
 
 // Settings: stored locally, applied to the camera, renderer and touch layout.
@@ -92,7 +99,206 @@ let savedGame = loadSave(window.localStorage);
 game.setSaveInfo(savedGame);
 game.showTitle();
 
-$('#start')?.addEventListener('click', () => game.startNew());
+// PWA: installability is handled by the manifest + service worker. Android/Chromium also
+// exposes a deferred install prompt; iOS uses Share → Add to Home Screen instead.
+const installButton = $('#install');
+const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches === true
+  || window.navigator.standalone === true;
+document.documentElement.classList.toggle('pwa-standalone', standalone);
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  if (installButton) installButton.hidden = standalone;
+});
+installButton?.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  try {
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+  } catch {
+    // The browser can discard a deferred prompt; the menu/install hint remains available.
+  }
+  installPrompt = null;
+  installButton.hidden = true;
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  if (installButton) installButton.hidden = true;
+});
+if ('serviceWorker' in navigator
+  && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).catch(() => {});
+  });
+}
+
+// Build the large-map overlays from the same data catalogue the HUD projects markers with.
+// Adding a region or point of interest to WORLD_MAP is enough for it to appear on every map.
+function buildWorldMapOverlay(host) {
+  const regionLayer = host.querySelector('.map-regions');
+  const poiLayer = host.querySelector('.map-pois');
+  if (!regionLayer || !poiLayer || regionLayer.childElementCount) return;
+  for (const region of WORLD_MAP.regions) {
+    const frame = projectMapBounds(region.bounds);
+    const node = document.createElement('div');
+    node.className = `map-region ${region.kind || ''}`;
+    node.style.left = `${frame.left}%`;
+    node.style.top = `${frame.top}%`;
+    node.style.width = `${frame.width}%`;
+    node.style.height = `${frame.height}%`;
+    const label = document.createElement('span');
+    label.textContent = region.label;
+    node.append(label);
+    regionLayer.append(node);
+  }
+  for (const point of WORLD_MAP.points) {
+    const spot = projectMapPoint(point);
+    const node = document.createElement('div');
+    node.className = `map-poi ${point.kind || ''}`;
+    node.style.left = `${spot.left}%`;
+    node.style.top = `${spot.top}%`;
+    const label = document.createElement('span');
+    label.textContent = point.label;
+    node.append(label);
+    poiLayer.append(node);
+  }
+}
+for (const map of $$('.map-square')) buildWorldMapOverlay(map);
+
+let questVersion = -1;
+function renderQuestList() {
+  const host = $('#quest-list');
+  if (!host) return;
+  host.replaceChildren();
+  for (const quest of game.questEntries) {
+    const card = document.createElement('article');
+    card.className = `quest-card ${quest.status}`;
+    card.setAttribute('role', 'listitem');
+    const copy = document.createElement('div');
+    copy.className = 'quest-copy';
+    const title = document.createElement('h4');
+    title.textContent = quest.title;
+    const summary = document.createElement('p');
+    summary.textContent = quest.summary;
+    const meta = document.createElement('div');
+    meta.className = 'quest-meta';
+    const objective = document.createElement('span');
+    objective.textContent = quest.objective;
+    const progress = document.createElement('span');
+    progress.className = 'quest-progress';
+    progress.textContent = quest.progressLabel;
+    const reward = document.createElement('span');
+    reward.className = 'quest-reward';
+    reward.textContent = `+${quest.rewardXp} XP`;
+    meta.append(objective, progress, reward);
+    copy.append(title, summary, meta);
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'quest-action';
+    action.dataset.questAction = quest.id;
+    action.textContent = quest.status === 'active' ? 'TRACKED'
+      : quest.status === 'completed' ? 'COMPLETE' : 'TRACK';
+    action.disabled = quest.status !== 'available';
+    card.append(copy, action);
+    host.append(card);
+  }
+  questVersion = game.questVersion;
+}
+
+function syncQuestList() {
+  if (questVersion !== game.questVersion) renderQuestList();
+}
+
+$('#quest-list')?.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-quest-action]');
+  if (!button) return;
+  if (game.selectQuest(button.dataset.questAction)) renderQuestList();
+});
+
+renderQuestList();
+
+// Story introduction. Start/Enter opens the deck, Next advances, and the final page's button
+// exits into a new run. The deck is data-driven so later story/dialogue events can reuse it.
+const story = $('#story');
+const titleScreen = $('#title');
+const storyDeck = new StoryDeck();
+const storyTitle = $('#story-title');
+const storyKicker = $('#story-kicker');
+const storyBody = $('#story-body');
+const storyPageCount = $('#story-page-count');
+const storyNext = $('#story-next');
+const storySkip = $('#story-skip');
+const storyConfirm = $('#story-confirm');
+const storyConfirmSkip = $('#story-confirm-skip');
+const storyConfirmCancel = $('#story-confirm-cancel');
+let storyOpen = false;
+let storyAfter = null;
+
+function renderStory() {
+  const page = storyDeck.page;
+  if (!page) return;
+  storyKicker.textContent = 'A NONLETHAL BEGINNING';
+  storyTitle.textContent = page.title;
+  storyBody.replaceChildren(...page.body.map(text => {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    return paragraph;
+  }));
+  storyPageCount.textContent = `${String(storyDeck.index + 1).padStart(2, '0')} / ${String(storyDeck.count).padStart(2, '0')}`;
+  storyNext.textContent = storyDeck.isLast ? 'EXIT' : 'NEXT';
+  storyConfirm.hidden = true;
+}
+
+function openStory(after = () => game.startNew()) {
+  if (storyOpen) return;
+  storyOpen = true;
+  storyAfter = after;
+  storyDeck.reset();
+  // Hud.sync owns the title's hidden state, so hide it visually as well while story is open.
+  titleScreen.style.visibility = 'hidden';
+  story.hidden = false;
+  renderStory();
+  storyNext.focus();
+}
+
+function closeStory(startGame = true) {
+  if (!storyOpen) return;
+  storyOpen = false;
+  story.hidden = true;
+  storyConfirm.hidden = true;
+  titleScreen.style.visibility = '';
+  const after = storyAfter;
+  storyAfter = null;
+  if (startGame && after) after();
+}
+
+function requestStorySkip() {
+  if (!storyOpen) return;
+  storyConfirm.hidden = false;
+  storyConfirmCancel.focus();
+}
+
+function cancelStorySkip() {
+  storyConfirm.hidden = true;
+  storyNext.focus();
+}
+
+storyNext?.addEventListener('click', () => {
+  if (storyDeck.next()) renderStory();
+  else closeStory(true);
+});
+storySkip?.addEventListener('click', requestStorySkip);
+storyConfirmSkip?.addEventListener('click', () => closeStory(true));
+storyConfirmCancel?.addEventListener('click', cancelStorySkip);
+window.addEventListener('keydown', event => {
+  if (!storyOpen || event.code !== 'Escape') return;
+  event.preventDefault();
+  if (storyConfirm.hidden) requestStorySkip();
+  else cancelStorySkip();
+});
+
+$('#start')?.addEventListener('click', () => openStory());
 $('#resume')?.addEventListener('click', () => {
   if (savedGame) game.resume(savedGame);
 });
@@ -243,6 +449,7 @@ function frame(now) {
   if (!document.hidden) {
     pollPadRebind();
     game.update(dt);
+    syncQuestList();
     const look = input.consumeLook();
     if ((look.x || look.y) && game.screen === 'playing') world.look(look.x, look.y);
     world.setFeedback({
@@ -258,10 +465,14 @@ function frame(now) {
     world.render(dt);
     sampleFrames += 1;
     sampleTime += elapsed;
-    if (sampleTime >= 0.5) {
+    if (sampleTime >= 1) {
       if (fpsLabel) {
         const info = world.renderer.info.render;
-        fpsLabel.textContent = `${Math.round(sampleFrames / sampleTime)} FPS · ${info.calls} DC · ${Math.round(info.triangles / 1000)}K TRI`;
+        const fps = Math.round(sampleFrames / sampleTime);
+        const draws = info.calls;
+        const tris = Math.round(info.triangles / 1000);
+        fpsLabel.textContent = `${fps} FPS · ${draws} draws · ${tris}k tris`;
+        fpsLabel.title = 'Frames per second · draw calls · triangles rendered in the last second. FPS changes as the scene moves; that is normal.';
       }
       sampleFrames = 0;
       sampleTime = 0;

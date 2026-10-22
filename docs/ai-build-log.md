@@ -387,3 +387,171 @@ Character likeness still requires approved reference sheets.
 commit-pinned path avoids raw.githack's `/main/` module cache.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (quests and minimap pass)
+
+**Scope:** owner asked for a minimap that follows the character, a menu map ready for a big open
+world, and selectable quests with exactly one active quest tracked by a minimap arrow. Preserve the
+training/tutorial/spar loop, first-to-three knockdowns, no deaths, save/menu behavior, the existing
+wilderness slice and deferred touch-button tuning.
+
+**Files:** `src/quests.js` (new), `src/worldmap.js` (new), `src/game.js`, `src/hud.js`, `src/main.js`,
+`src/save.js`, `index.html`, `src/styles.css`, `tests/game.test.mjs`, `tests/systems.test.mjs`,
+`README.md`, `docs/architecture.md`, `docs/memory/02-gameplay.md`, `docs/memory/03-technical.md`,
+`docs/roadmap.md`, `docs/ai-build-log.md`.
+
+**Quest system**
+
+- Added a pure quest catalogue and `QuestLog` with one active slot, completion checks, available/
+  active/completed states, objective resolution and sanitised save snapshots. Three starter quests
+  reuse existing hooks: reach the first tower, knock down all four raiders, or win a spar.
+- The former SKILLS placeholder tab is now QUESTS. Cards are built by `main.js` from
+  `Game.questEntries` whenever `questVersion` changes; selecting another quest replaces the active
+  one, completed quests cannot be re-tracked, and the current card is marked TRACKED.
+- Completion clears tracking and pays the quest's placeholder XP once. If the objective sits in the
+  other zone, the arrow points at the appropriate gate first. Save/Resume restores active/completed
+  quest state alongside tutorial, XP, cash and permissions.
+
+**Minimap and menu map**
+
+- The HUD radar remains a player-centred follow view. Target radius was reduced from 40 to 32 so
+  pinned targets are not clipped by the 70px mobile radar. Added a cyan active-quest arrow with
+  rotation toward the objective, a compact title/progress/distance tracker, and a documented
+  follow-view regression test.
+- Added `worldmap.js` with configurable bounds, training/wilderness regions and gate/tower points
+  of interest. Both menu maps now project live markers through those bounds instead of an `arena`
+  radius, and build region/POI overlays plus a cyan quest marker from the same catalogue.
+- North remains negative Z, so the gate/tower stay up-screen. Adding a region or quest is a data
+  change; no new map module or projection path is needed.
+
+**Verification:** `node --check` clean on every `src/*.js` and both test files; `git diff --check`
+clean; `npm test` → 64/64. New tests cover radar follow invariance, quest one-active enforcement,
+completion/reward-once behavior, cross-zone target fallback, world-map bounds/projection and HUD
+quest marker/arrow output. No browser/device render pass was run here, so the cyan arrow geometry,
+mobile tracker placement, quest cards and map overlays still need the owner's screen test.
+
+**Gaps/next:** only three placeholder quests; no chains, choices, failure states, timers or canon
+story rewards. Menu maps have no pan/zoom yet. Quest cards are main.js-built DOM (tested through
+Game/HUD state, not DOM automation). Touch-button layout tuning remains deferred by owner request.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
+
+## 2026-10-22 — opencode/deepseek-v4.1-flash-free (HUD, crash, minimap, PWA and device detection)
+
+**Scope:** owner reported incorrect HUD placement, a wilderness crash when a raider reached the
+player, unstable/unclear FPS values, a landscape event log hidden behind the left joystick, and a
+minimap that felt too zoomed in with an unclear moving red dot. Owner also asked for PWA
+installation on Android/iOS, proper iPad touch detection and controller detection, with the custom
+icon deferred. Preserve the training/tutorial/spar loop, first-to-three knockdowns, no deaths,
+save/menu behavior, the wilderness slice and deferred touch-button tuning.
+
+**Files:** `src/game.js`, `src/config.js`, `src/hud.js`, `src/input.js`, `src/device.js` (new),
+`src/main.js`, `src/styles.css`, `index.html`, `manifest.webmanifest` (new), `sw.js` (new),
+`icons/` (new placeholder PNGs and handoff README), `tests/game.test.mjs`, `tests/systems.test.mjs`,
+`README.md`, `docs/architecture.md`, `docs/memory/02-gameplay.md`, `docs/memory/03-technical.md`,
+`docs/decision-log.md`, `docs/roadmap.md`.
+
+**Crash and minimap**
+
+- Root cause of the wilderness crash: `Game.moveWildEnemies()` called `hit()` on
+  `this.world.player` (the Three.js mesh) instead of `this.player` (the FighterState). Fixed the
+  target and added a regression test that lets a raider reach and strike the player, asserting no
+  throw and one `CONFIG.wildDamage` hit.
+- Radar range is now config-driven: `CONFIG.radarRange = 24` in training and
+  `CONFIG.radarWildRange = 52` in the wilderness. The player remains at the centre with a larger
+  gold/white marker and forward tick, while Sensei/raiders/quest targets move around it.
+  `Hud` uses the published range for every marker, including the quest arrow.
+
+**HUD/FPS**
+
+- Repositioned the HUD for the owner's layout: minimap top-left, player health/stamina top-right,
+  Sensei boss health/phase top-centre below MENU, SKIP TUTORIAL beside MENU (wrapped with
+  pause/restart in `#top-actions`), weapon/score/quest tracker below the boss bar, and the event
+  feed under the minimap. Removed the short-height rule that hid the feed so it remains visible in
+  landscape; added compact landscape and portrait overrides.
+- FPS readout now uses a one-second sample and plain labels: `60 FPS · 277 draws · 27k tris`, with
+  an explanatory tooltip/title and a SYSTEM page note. Draw calls and triangles are renderer
+  complexity, not separate frame rates.
+
+**PWA and device detection**
+
+- Added `manifest.webmanifest` with standalone display, relative scope/start URL, 192/512 icons and
+  a maskable icon; added Apple touch icon/meta tags, theme/color-scheme and `viewport-fit=cover`.
+- Added `sw.js`, which precaches the app shell, icons and pinned three.js module. Navigations are
+  network-first with an offline shell fallback; static modules use stale-while-revalidate. Added
+  optional Chromium install prompt handling and an INSTALL APP title button; iOS uses Share → Add to
+  Home Screen. Service-worker registration is limited to HTTPS/localhost.
+- Added pure `device.js` detection. iPadOS is recognised through touch points + coarse pointer even
+  when its user agent reports Macintosh. `Input` now tracks `touchUI` separately from the active
+  prompt source, so a keyboard/controller cannot hide the touch controls on a tablet. A paired
+  controller changes the active device only when a stick/button is actually used.
+- Generated placeholder PWA/favicon PNGs and documented the custom-art handoff in
+  `icons/README.md`; owner artwork is still pending.
+
+**Verification:** `node --check` clean on modified JS and `sw.js`; CSS brace balance clean;
+`git diff --check` clean; `npm test` → 67/67. New tests cover device detection, PWA manifest/icon
+existence and service-worker shell entries, plus the wilderness raider strike regression. No
+browser/device render pass was run here, so final HUD spacing, landscape feed visibility, minimap
+readability, iPad touch layout, controller pairing, installability and FPS smoothing still need the
+owner's screen test.
+
+**Gaps/next:** custom PWA icon artwork; optional quest/loot markers once a loot system exists;
+landscape HUD/feed tuning after a real phone pass; touch-button layout remains deferred.
+
+**Preview:** commit-pinned raw.githack URL to be added after this commit is pushed.
+
+## 2026-10-22 — Solid scenery, enemy outpost, minimal title and offline story
+
+**Collision**
+
+- Added pure `src/collision.js`: circle-vs-circle and circle-vs-rotated-box resolution with a
+  multi-pass settle loop. `CONFIG.actorRadius = .42`.
+- `scenery.js` now publishes colliders for reachable yard buildings, stalls, water/solar/fan,
+  laundry and ring posts, gate posts, crates, barrels, sacks, trees, bushes, wilderness boundary
+  posts, rocks, dead trees, distant structures, supply props and the outpost footprint.
+- `world.js` merges training and wilderness colliders and exposes `outpost`.
+- `game.js` resolves player movement, dodge, knockback, Sensei movement and raider movement
+  against the collider list, then reapplies zone bounds. Raider reset positions are settled out of
+  props as well. The outpost trigger is distance-based at `(0, −63)` with a 6.4m radius, outside its
+  solid footprint.
+
+**Outpost rename**
+
+- The existing end-of-slice relay/guard geometry is retained and relabelled as an enemy outpost,
+  not a story tower. Config keys are now `wildOutpostX/Z/Reach`; gameplay state is
+  `outpostReached`; the quest is `scout-outpost` / “Scout the Enemy Outpost”; the world-map POI is
+  `ENEMY OUTPOST`. Older saves using `first-tower` migrate on `QuestLog.restore`.
+- The sequence ends at the outpost watch radius and emits `outpost-reached`; the test slice message
+  and prompt now use the outpost wording. No new tower geometry or canon geography was added.
+
+**Title and story**
+
+- Reduced `#title` to `THE 5 SLEEVES` plus Start, Resume, Install (when offered), Settings and the
+  disabled Multiplayer button. Removed eyebrow, tagline and version copy.
+- Added `src/story.js` with five data-driven, deliberately broad mood/setting pages and a reusable
+  `StoryDeck`. Added `#story` overlay with page count, NEXT, last-page EXIT, top-of-box SKIP STORY,
+  and inline “Skip the story?” confirmation. Escape mirrors the skip confirmation. Resume bypasses
+  the introduction.
+- `Game` accepts an optional `requestStart` hook. The browser passes one that opens the story;
+  headless tests without the hook still call `startNew()` directly. `Hud.sync` owns the title's
+  hidden state, so the story overlay hides the title with `style.visibility`.
+- Updated the service-worker shell for `collision.js` and `story.js`, bumped the cache to
+  `five-sleeves-shell-v2`, and refreshed README/architecture/gameplay/technical/roadmap notes.
+
+**Verification:** `node --check` clean on all JS and `sw.js`; `npm test` → 72/72. New/updated tests
+cover outpost trigger and quest completion, quest-ID migration, solid circle/rotated-box
+resolution, player and raider collision, story deck navigation/final exit, story-page guardrails,
+world-map outpost labelling and the HUD quest fixture. No browser/device render pass was run here:
+collision feel, outpost approach, title/story layout, landscape HUD, iPad touch layout, controller
+pairing, PWA installation and FPS behavior still need the owner's screen test.
+
+**Gaps/next:** custom PWA icon artwork remains pending at `icons/source/app-icon.png`; runtime
+files to replace are `icons/icon-192.png`, `icons/icon-512.png`,
+`icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. Touch-button
+layout remains deferred. The story deck currently has no branches, portraits or seen-state save.
+
+**Preview:** commit-pinned raw.githack URL to be added after this commit is pushed.
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (HUD/PWA/device detection follow-up)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)

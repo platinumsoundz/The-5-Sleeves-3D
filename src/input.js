@@ -6,6 +6,7 @@
 import { CONFIG } from './config.js';
 import { deadzone, joystick } from './controls.js';
 import { sanitizeBindings } from './bindings.js';
+import { detectTouchCapability } from './device.js';
 
 export class Input {
   constructor() {
@@ -13,9 +14,22 @@ export class Input {
     this.pressed = new Set();
     this.padHeld = new Set();
     this.padName = '';
+    this.padConnected = false;
     this.padMove = { x: 0, z: 0 };
-    this.hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    this.device = this.hasTouch ? 'touch' : 'keyboard';
+    const media = query => window.matchMedia?.(query)?.matches === true;
+    // Keep touch controls visible on iPad/tablet even if a keyboard or controller is the
+    // current active source. `device` tracks prompts; `touchUI` tracks the control surface.
+    this.touchCapable = detectTouchCapability({
+      maxTouchPoints: navigator.maxTouchPoints,
+      hasTouchStart: 'ontouchstart' in window,
+      coarsePointer: media('(pointer: coarse)'),
+      anyCoarsePointer: media('(any-pointer: coarse)'),
+      userAgent: navigator.userAgent,
+      platform: navigator.platform
+    });
+    this.touchUI = this.touchCapable;
+    this.hasTouch = this.touchCapable;
+    this.device = this.touchCapable ? 'touch' : 'keyboard';
     this.lastSource = this.device;
     this.pointerStart = null;
     this.look = { x: 0, y: 0 };
@@ -67,13 +81,17 @@ export class Input {
       this.look = { x: 0, y: 0 };
       this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
     });
-    window.addEventListener('gamepadconnected', event => { this.padName = event.gamepad.id; });
+    window.addEventListener('gamepadconnected', event => {
+      this.padName = event.gamepad.id;
+      this.padConnected = true;
+    });
     window.addEventListener('gamepaddisconnected', () => {
       this.padName = '';
+      this.padConnected = false;
       this.padMove = { x: 0, z: 0 };
       for (const action of this.padHeld) this.up(action);
       this.padHeld.clear();
-      this.device = this.hasTouch ? 'touch' : 'keyboard';
+      this.device = this.touchCapable ? 'touch' : 'keyboard';
     });
 
     // Touch buttons: hold/hit semantics come from [data-action] in the shell.
@@ -181,7 +199,7 @@ export class Input {
       return;
     }
     this.padName = pad.id;
-    this.device = 'gamepad';
+    this.padConnected = true;
     const buttons = pad.buttons;
     const axes = pad.axes;
     const current = new Set();
@@ -206,6 +224,12 @@ export class Input {
     if (lookX || lookY) {
       this.look.x += lookX * CONFIG.gamepadLookSpeed * dt;
       this.look.y += lookY * CONFIG.gamepadLookSpeed * dt;
+    }
+    // Connected is not the same as active: a paired controller must not steal prompts or
+    // hide touch controls until the player actually moves a stick or presses a button.
+    if (axisX || axisZ || lookX || lookY || buttons.some?.(button => button?.pressed)) {
+      this.device = 'gamepad';
+      this.lastSource = 'gamepad';
     }
 
     for (const action of current) if (!this.padHeld.has(action)) this.down(action);
@@ -244,7 +268,8 @@ export class Input {
 
   deviceLabel() {
     if (this.device === 'gamepad') return `INPUT: ${this.padType()}`;
-    return this.device === 'touch' ? 'INPUT: TOUCH' : 'INPUT: KEYBOARD / MOUSE';
+    const base = this.device === 'touch' ? 'INPUT: TOUCH' : 'INPUT: KEYBOARD / MOUSE';
+    return this.padConnected ? `${base} + PAD` : base;
   }
 
   padType() {

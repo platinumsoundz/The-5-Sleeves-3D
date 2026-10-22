@@ -1,6 +1,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-21 (shell/save/hud pass)
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (collision, outpost, story hook)
 // Headless checks for every rules module plus the Game wiring. No renderer and no DOM: world,
 // input and UI are stubs. Visual layout, camera, touch and gamepad still need the device pass
 // described in docs/memory/03-technical.md.
@@ -13,6 +15,7 @@ import { CombatState } from '../src/combat.js';
 import { SenseiAI } from '../src/ai.js';
 import { Match } from '../src/match.js';
 import { Game } from '../src/game.js';
+import { circleCollider, boxCollider } from '../src/collision.js';
 import { clamp, deadzone, joystick } from '../src/controls.js';
 import { BINDING_ACTIONS, DEFAULT_GAMEPAD, DEFAULT_KEYBOARD } from '../src/bindings.js';
 import { DEFAULTS, loadSettings, sanitize, saveSettings, SETTINGS_KEY } from '../src/settings.js';
@@ -43,6 +46,7 @@ function makeWorld() {
     sensei: fighter(-2.5),
     playerParts: { stick: { rotation: new Vec3() } },
     senseiParts: { stick: { rotation: new Vec3() } },
+    colliders: [],
     locked: false,
     setLocked(value) { this.locked = value; }
   };
@@ -743,15 +747,91 @@ test('the north gate requires USE and moves the player into the wilderness', () 
   assert.equal(world.player.position.z, -9.9);
 });
 
-test('reaching the first tower flags the end of the wilderness test slice', () => {
-  const { game, world, input } = makeGame();
+test('reaching the enemy outpost flags the end of the wilderness test slice', () => {
+  const { game, world } = makeGame();
   game.finishTutorial();
   game.zone = 'wilds';
-  world.player.position.set(0, 0, CONFIG.wildTowerZ - .5);
+  world.player.position.set(CONFIG.wildOutpostX, 0, CONFIG.wildOutpostZ - .5);
   step(game);
-  assert.equal(game.towerReached, true);
-  assert.match(game.message, /first tower/i);
+  assert.equal(game.outpostReached, true);
+  assert.match(game.message, /enemy outpost/i);
 });
+
+test('quest selection enforces one active quest and points across zones', () => {
+  const { game, world } = makeGame();
+  game.finishTutorial();
+
+  assert.equal(game.selectQuest('scout-outpost'), true);
+  assert.equal(game.activeQuest.id, 'scout-outpost');
+  assert.equal(game.selectQuest('prove-lesson'), true);
+  assert.equal(game.activeQuest.id, 'prove-lesson');
+  assert.equal(game.questEntries.filter(quest => quest.status === 'active').length, 1);
+  assert.equal(game.questEntries.find(quest => quest.id === 'scout-outpost').status, 'available');
+
+  game.zone = 'wilds';
+  assert.equal(game.selectQuest('scout-outpost'), true);
+  assert.deepEqual(game.activeQuestView().target, { x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ });
+  assert.equal(game.activeQuestView().distance > 40, true);
+
+  game.zone = 'training';
+  world.player.position.set(0, 0, 0);
+  assert.deepEqual(game.activeQuestView().target, { x: 0, z: -10.6 }, 'the arrow points at the north gate first');
+});
+
+test('quests complete through existing progress hooks and pay their reward once', () => {
+  const outpost = makeGame();
+  outpost.game.selectQuest('scout-outpost');
+  outpost.game.zone = 'wilds';
+  outpost.world.player.position.set(CONFIG.wildOutpostX, 0, CONFIG.wildOutpostZ - .5);
+  step(outpost.game);
+  assert.equal(outpost.game.activeQuest, null);
+  assert.equal(outpost.game.questEntries.find(quest => quest.id === 'scout-outpost').status, 'completed');
+  assert.equal(outpost.game.progress.xp, 150);
+  const version = outpost.game.questVersion;
+  step(outpost.game);
+  assert.equal(outpost.game.progress.xp, 150, 'a completed quest cannot pay twice');
+  assert.equal(outpost.game.questVersion, version);
+
+  const world = makeWorld();
+  world.enemies = [
+    enemyFixture('raider-1', 0, -21),
+    enemyFixture('raider-2', 0, -33),
+    enemyFixture('raider-3', 0, -45),
+    enemyFixture('raider-4', 0, -55)
+  ];
+  const raiders = makeGame(world);
+  raiders.game.selectQuest('clear-approach');
+  raiders.game.encounters.forEach(enemy => { enemy.defeated = true; });
+  step(raiders.game);
+  assert.equal(raiders.game.activeQuest, null);
+  assert.equal(raiders.game.progress.xp, 200);
+  assert.match(raiders.game.message, /Quest complete/i);
+
+  const spar = makeGame();
+  spar.game.selectQuest('prove-lesson');
+  spar.game.match.over = true;
+  spar.game.match.winner = 'player';
+  step(spar.game);
+  assert.equal(spar.game.activeQuest, null);
+  assert.equal(spar.game.progress.xp, 100);
+});
+
+test('a wilderness raider can strike the player without throwing and deals damage', () => withAccuracy(1, () => {
+  const world = makeWorld();
+  world.enemies = [enemyFixture('raider-1', 0, -20.8)];
+  world.setZone = function setZone(value) { this.zone = value; };
+  const { game } = makeGame(world);
+  game.finishTutorial();
+  game.zone = 'wilds';
+  world.player.position.set(0, 0, -20);
+
+  // Regression: the strike path once called hit() on the Three.js player mesh instead of the
+  // player's FighterState, crashing as soon as a raider reached the player.
+  assert.doesNotThrow(() => {
+    for (let i = 0; i < frames(3) && game.playerHp === 100; i++) step(game);
+  });
+  assert.equal(game.playerHp, 100 - CONFIG.wildDamage);
+}));
 
 test('wilderness attacks target and knock down raiders without scoring the spar', () => {
   const world = makeWorld();
@@ -954,6 +1034,7 @@ test('title, menu and select-map screens pause and return sensibly', () => {
   assert.equal(game.screen, 'playing', 'Start / Esc begins training from the title');
   assert.equal(game.phase, 'tutorial');
 
+
   input.press('map');
   step(game);
   assert.equal(game.screen, 'map');
@@ -972,6 +1053,19 @@ test('title, menu and select-map screens pause and return sensibly', () => {
   assert.equal(game.screen, 'playing');
 });
 
+test('title start can hand off to the story before starting a run', () => {
+  const input = makeInput();
+  let requests = 0;
+  const game = new Game(makeWorld(), input, makeUi(), {
+    requestStart: () => { requests += 1; }
+  });
+  game.showTitle();
+  input.press('menu');
+  step(game);
+  assert.equal(requests, 1);
+  assert.equal(game.screen, 'title', 'the hook owns the transition and can wait for the story');
+});
+
 test('save files restore tutorial progress and developer grants', () => {
   const store = memoryStorage();
   const first = makeGame();
@@ -979,12 +1073,14 @@ test('save files restore tutorial progress and developer grants', () => {
   assert.equal(first.game.redeemDev('DEV-XP-500').ok, true);
   assert.equal(first.game.redeemDev('DEV-CASH-1000').ok, true);
   assert.equal(first.game.redeemDev('DEV-GEAR-SLEEVE').ok, true);
+  assert.equal(first.game.selectQuest('clear-approach'), true);
   const saved = first.game.saveGame(store);
   assert.equal(first.game.hasSave, true);
   assert.equal(saved.tutorialDone, true);
   assert.equal(saved.xp, 500);
   assert.equal(saved.cash, 1000);
   assert.deepEqual(saved.permissions, ['sleeve-prototype']);
+  assert.deepEqual(saved.quests, { active: 'clear-approach', completed: [] });
 
   const restored = loadSave(store);
   assert.deepEqual(restored, saved);
@@ -996,6 +1092,7 @@ test('save files restore tutorial progress and developer grants', () => {
   assert.equal(second.game.phase, 'spar');
   assert.equal(second.game.progress.xp, 500);
   assert.equal(second.game.progress.cash, 1000);
+  assert.equal(second.game.activeQuest.id, 'clear-approach', 'the tracked quest restores from the save');
 
   second.game.clearSave(store);
   assert.equal(second.game.hasSave, false);
@@ -1024,6 +1121,27 @@ test('stamina gates sprint and dodge and regenerates after a delay', () => {
   step(game);
   assert.equal(game.dodgeTimer, 0, 'no stamina means no dodge');
   assert.equal(game.blocking, true, 'the guard still comes up');
+});
+
+test('player and wilderness raiders resolve against solid scenery', () => {
+  const world = makeWorld();
+  world.colliders = [circleCollider(0, 0, 1)];
+  const { game, input } = makeGame(world);
+  game.finishTutorial();
+  world.player.position.set(0, 0, 3);
+  input.held.add('forward');
+  step(game, frames(1.5));
+  assert.ok(world.player.position.z >= 1.41, 'the player stops at the circle instead of walking through it');
+
+  input.release('forward');
+  game.zone = 'wilds';
+  world.colliders = [boxCollider(0, -30, 1, 1)];
+  const raider = { x: .2, z: -30.2 };
+  game.constrainWildEnemy(raider);
+  assert.ok(
+    Math.abs(raider.x) >= 1.41 || Math.abs(raider.z + 30) >= 1.41,
+    'the raider is ejected from the test box'
+  );
 });
 
 test('every HUD id main.js queries exists in the shell', async () => {
