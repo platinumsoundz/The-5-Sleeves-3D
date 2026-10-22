@@ -5,7 +5,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (quests/minimap pass)
 // Every DOM write lives here so Game stays testable without a document. Elements are injected,
 // never queried, and optional ones are tolerated for older shells.
-import { radarOffset } from './radar.js';
+import { birdseyeOffset } from './radar.js';
 import { projectMapPoint } from './worldmap.js';
 
 export class Hud {
@@ -18,18 +18,25 @@ export class Hud {
 
     el.phase.textContent = state.phase === 'spar' ? 'FREE SPAR'
       : state.phase === 'result' ? 'SPAR COMPLETE'
-        : state.phase === 'wilds' ? 'WILDERNESS' : 'TUTORIAL';
+        : state.phase === 'wilds' ? 'WILDERNESS'
+          : state.phase === 'tower' ? 'FIRST TOWER' : 'TUTORIAL';
     if (el.targetName) el.targetName.textContent = state.targetName || 'SENSEI';
+    if (el.targetAlert) {
+      el.targetAlert.textContent = state.targetAlert === '!' ? 'SPOTTED'
+        : state.targetAlert === '?' ? 'SUSPICIOUS' : '';
+      el.targetAlert.hidden = !state.targetAlert;
+    }
     if (el.score) {
       el.score.textContent = pips(state);
-      el.score.hidden = state.zone === 'wilds';
+      el.score.hidden = state.zone === 'wilds' || state.zone === 'tower';
     }
     if (el.weapon) {
       el.weapon.textContent = state.weaponShort || 'STAFF';
       el.weapon.classList?.toggle('test', state.weaponTest === true);
       el.weapon.classList?.toggle('unarmed', state.weapon === 'unarmed');
     }
-    if (el.zone) el.zone.textContent = state.zone === 'wilds' ? 'WILDERNESS' : 'TRAINING YARD';
+    if (el.zone) el.zone.textContent = state.zone === 'wilds' ? 'WILDERNESS'
+      : state.zone === 'tower' ? 'FIRST TOWER · CONTROL CHAMBER' : 'TRAINING YARD';
     el.playerHealth.style.width = `${percent(state.playerHp)}%`;
     el.senseiHealth.style.width = `${percent(state.senseiHp)}%`;
     if (el.playerStamina) el.playerStamina.style.width = `${percent(state.stamina * 100)}%`;
@@ -67,10 +74,20 @@ export class Hud {
     if (el.reticle) el.reticle.hidden = !state.aiming || !playing;
     if (el.fire) el.fire.hidden = !(state.touch && state.aiming) || !playing;
 
-    // Radar: the player sits at the centre facing up; Sensei is projected relative to them.
+    // Radar: north-up bird's-eye view. The player stays centred; only the heading marker
+    // rotates, so the map never spins under the player when they turn.
+    const radarRange = state.radarRange || 24;
+    if (el.radarPlayer && state.player) {
+      // The diagram is north-up, so the marker (not the map) turns. A yaw of 0 faces south
+      // (+Z), which points down on the screen; yaw PI faces north, which points up.
+      const headingDegrees = 180 - (state.player.yaw * 180 / Math.PI);
+      el.radarPlayer.style.transform = `rotate(${headingDegrees}deg)`;
+    }
+    if (el.radarNorth) el.radarNorth.hidden = !state.player;
     if (el.radarSensei && state.player && state.sensei) {
-      el.radarSensei.hidden = state.zone === 'wilds';
-      const spot = radarOffset(state.player, state.player.yaw, state.sensei, state.radarRange || 24, 32);
+      const inWorld = state.zone !== 'wilds' && state.zone !== 'tower';
+      el.radarSensei.hidden = !inWorld;
+      const spot = birdseyeOffset(state.player, state.sensei, radarRange, 32);
       el.radarSensei.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
       el.radarSensei.classList?.toggle('off', spot.clamped);
     }
@@ -78,23 +95,25 @@ export class Hud {
     if (el.radarEnemies) {
       el.radarEnemies.forEach((node, index) => {
         const enemy = state.enemies?.[index];
-        const show = state.zone === 'wilds' && enemy && enemy.alive;
+        const show = (state.zone === 'wilds' || state.zone === 'tower') && enemy && enemy.alive;
         node.hidden = !show;
         if (!show) return;
-        const spot = radarOffset(state.player, state.player.yaw, enemy, state.radarRange || 24, 32);
+        const spot = birdseyeOffset(state.player, enemy, radarRange, 32);
         node.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
         node.classList?.toggle('off', spot.clamped);
+        node.classList?.toggle('alert', enemy.marker === '!');
+        node.classList?.toggle('suspicious', enemy.marker === '?');
       });
     }
 
-    // The radar is a follow view: the player is always at the centre and the active quest
-    // arrow is projected from the player's live position, clamped to the rim when far away.
+    // The quest arrow is projected north-up from the player's live position and clamped to the
+    // rim when far away, so it always indicates a real compass bearing.
     if (el.radarQuest) {
       const quest = state.activeQuest;
       const target = quest?.target;
       el.radarQuest.hidden = !target || !state.player;
       if (target && state.player) {
-        const spot = radarOffset(state.player, state.player.yaw, target, state.radarRange || 24, 32);
+        const spot = birdseyeOffset(state.player, target, radarRange, 32);
         const angle = Math.atan2(spot.x, -spot.y) * 180 / Math.PI;
         el.radarQuest.style.transform = `translate(${spot.x}px, ${spot.y}px) rotate(${angle}deg)`;
         el.radarQuest.classList?.toggle('off', spot.clamped);
@@ -150,6 +169,22 @@ export class Hud {
       });
     }
 
+    if (el.scan) {
+      const scan = state.scan;
+      el.scan.hidden = !scan || !playing;
+      if (scan) {
+        if (el.scanName) el.scanName.textContent = scan.name;
+        if (el.scanLevel) el.scanLevel.textContent = `LV ${scan.level}`;
+        if (el.scanState) el.scanState.textContent = scan.state;
+        if (el.scanHp) el.scanHp.textContent = `${scan.hp} / ${scan.maxHp} HP`;
+        if (el.scanHealth) el.scanHealth.style.width = `${scan.healthPercent}%`;
+        if (el.scanAbilities) el.scanAbilities.textContent = scan.abilities.join(' · ');
+        if (el.scanWeaknesses) el.scanWeaknesses.textContent = scan.weaknesses.join(' · ');
+        if (el.scanNote) el.scanNote.textContent = scan.note;
+        if (el.scanConfidence) el.scanConfidence.textContent = scan.confidence;
+      }
+    }
+
     if (el.menuPages) {
       for (const [tab, node] of Object.entries(el.menuPages)) node.hidden = tab !== state.menuTab;
     }
@@ -157,8 +192,23 @@ export class Hud {
       tab.classList?.toggle('active', tab.dataset?.tab === state.menuTab);
     }
 
+    if (el.statLevel) el.statLevel.textContent = `LV ${state.level ?? 1}`;
     if (el.statXp) el.statXp.textContent = String(state.xp ?? 0);
+    if (el.statXpNext) {
+      el.statXpNext.textContent = state.xpNext
+        ? `${state.xp ?? 0} / ${state.xpNext} XP`
+        : `${state.xp ?? 0} XP · MAX LEVEL`;
+    }
+    if (el.xpFill) el.xpFill.style.width = `${percent((state.xpRatio || 0) * 100)}%`;
     if (el.statCash) el.statCash.textContent = String(state.cash ?? 0);
+    if (el.statSkillPoints) el.statSkillPoints.textContent = String(state.skillPoints ?? 0);
+    if (el.statAttack) el.statAttack.textContent = `+${Math.round((state.stats?.attack || 0) * 10) / 10}`;
+    if (el.statDefense) el.statDefense.textContent = `+${Math.round((state.stats?.defense || 0) * 10) / 10}`;
+    if (el.statSpeed) el.statSpeed.textContent = `${Math.round((state.stats?.speed || 0) * 100)}%`;
+    if (el.statTower) {
+      el.statTower.textContent = state.towerLinked ? 'Five channels linked'
+        : state.towerEntered ? 'Entered, console not linked' : 'Not reached';
+    }
     if (el.statTutorial) el.statTutorial.textContent = state.tutorialDone ? 'Complete' : 'In progress';
     if (el.statScore) el.statScore.textContent = `${state.playerScore} – ${state.senseiScore}`;
     if (el.statPerms) {
@@ -168,7 +218,7 @@ export class Hud {
     }
     if (el.saveStatus) {
       el.saveStatus.textContent = state.hasSave
-        ? `Save slot: spar ${state.tutorialDone ? 'unlocked' : 'not started'}`
+        ? `Save slot: level ${state.level ?? 1} · spar ${state.tutorialDone ? 'unlocked' : 'not started'}`
         : 'No save in this browser yet.';
     }
   }

@@ -12,6 +12,24 @@ import { clamp } from './controls.js';
 import { buildTrainingGround, buildWilderness } from './scenery.js';
 import { createFighter } from './characters.js';
 
+function markerTexture(symbol, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.font = '900 92px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = 'rgba(4, 12, 10, .92)';
+  ctx.strokeText(symbol, 64, 68);
+  ctx.fillStyle = color;
+  ctx.fillText(symbol, 64, 68);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function blobShadow(size = 1.9) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
@@ -89,19 +107,32 @@ export function createWorld(host) {
   const senseiShadow = blobShadow(2.05);
   scene.add(playerShadow, senseiShadow);
 
+  const markerQuestion = new THREE.SpriteMaterial({
+    map: markerTexture('?', '#ffd27f'), transparent: true, depthTest: false, depthWrite: false
+  });
+  const markerBang = new THREE.SpriteMaterial({
+    map: markerTexture('!', '#ff6b4a'), transparent: true, depthTest: false, depthWrite: false
+  });
+
   const enemies = wilderness.enemySpawns.map((spawn, index) => {
     const parts = createFighter('raider', { weapon: spawn.weapon });
     parts.root.position.set(spawn.x, 0, spawn.z);
-    parts.root.rotation.y = Math.PI;
+    parts.root.rotation.y = 0;
     scene.add(parts.root);
     const shadow = blobShadow(1.85);
     scene.add(shadow);
+    const alertSprite = new THREE.Sprite(markerQuestion);
+    alertSprite.scale.set(.55, .55, 1);
+    alertSprite.position.set(spawn.x, 2.45, spawn.z);
+    alertSprite.visible = false;
+    scene.add(alertSprite);
     return {
       ...spawn,
       index,
       root: parts.root,
       parts,
       shadow,
+      alertSprite,
       home: { x: spawn.x, z: spawn.z }
     };
   });
@@ -156,7 +187,7 @@ export function createWorld(host) {
   }
   let feedback = {
     senseiWindingUp: false, playerBlocking: false, aiming: false, crouching: false, swing: 0,
-    weapon: 'staff', attackMove: null, attackProgress: 0
+    weapon: 'staff', attackMove: null, attackProgress: 0, enemyAlerts: []
   };
   let wasWinding = false;
   let senseiFollowThrough = 0;
@@ -181,7 +212,11 @@ export function createWorld(host) {
     renderer,
 
     setLocked(value) { locked = value; },
-    setZone(value) { zone = value === 'wilds' ? 'wilds' : 'training'; },
+    setZone(value) {
+      zone = value === 'wilds' ? 'wilds' : value === 'tower' ? 'tower' : 'training';
+      scene.fog.near = zone === 'tower' ? 14 : 28;
+      scene.fog.far = zone === 'tower' ? 62 : 118;
+    },
 
     // Gamepad look and programmatic drags arrive here; touch/mouse drags call it internally.
     look,
@@ -214,7 +249,8 @@ export function createWorld(host) {
         swing: Number.isFinite(next.swing) ? next.swing : 0,
         weapon: typeof next.weapon === 'string' ? next.weapon : 'staff',
         attackMove: next.attackMove || null,
-        attackProgress: Number.isFinite(next.attackProgress) ? next.attackProgress : 0
+        attackProgress: Number.isFinite(next.attackProgress) ? next.attackProgress : 0,
+        enemyAlerts: Array.isArray(next.enemyAlerts) ? next.enemyAlerts : []
       };
     },
 
@@ -291,6 +327,13 @@ export function createWorld(host) {
         enemy.shadow.position.set(ep.x, .043, ep.z);
         const lift = Math.max(.55, 1 - Math.max(0, ep.y) * .42);
         enemy.shadow.scale.set(lift, lift, 1);
+
+        const alert = feedback.enemyAlerts?.[index]?.marker || '';
+        enemy.alertSprite.visible = !enemyDown && alert !== '';
+        if (enemy.alertSprite.visible) {
+          enemy.alertSprite.material = alert === '!' ? markerBang : markerQuestion;
+          enemy.alertSprite.position.set(ep.x, Math.max(ep.y, 0) + 2.45, ep.z);
+        }
       });
       playerFighter.visual.position.y = Math.sin(time * 1.7) * .007 + pDown * .55 + pStep;
       senseiFighter.visual.position.y = Math.sin(time * 1.45 + 1.8) * .007 + sDown * .55 + eStep;
@@ -338,12 +381,15 @@ export function createWorld(host) {
         camera.position.lerp(aimPosition, 1 - Math.exp(-dt * 14));
         camera.lookAt(aimFocus);
       } else {
-        const mid = zone === 'wilds' ? p.clone() : p.clone().lerp(e, locked ? 0.5 : 0);
-        const lockAngle = zone === 'wilds'
+        const fieldZone = zone === 'wilds' || zone === 'tower';
+        const mid = fieldZone ? p.clone() : p.clone().lerp(e, locked ? 0.5 : 0);
+        const lockAngle = fieldZone
           ? playerFighter.root.rotation.y + Math.PI
           : Math.atan2(p.x - e.x, p.z - e.z);
         const angle = locked ? lockAngle + yawOffset : yaw;
-        const distance = zone === 'wilds' ? CONFIG.cameraDistance * .9 : CONFIG.cameraDistance;
+        const distance = zone === 'tower'
+          ? CONFIG.cameraDistance * .62
+          : fieldZone ? CONFIG.cameraDistance * .9 : CONFIG.cameraDistance;
         const focus = new THREE.Vector3(mid.x, 1.18, mid.z);
         const target = new THREE.Vector3(
           focus.x + Math.sin(angle) * Math.cos(pitch) * distance,

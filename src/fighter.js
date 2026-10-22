@@ -18,6 +18,13 @@ export class FighterState {
 
   reset() { this.hp = this.maxHp; this.down = 0; }
 
+  setMaxHp(value, { heal = false } = {}) {
+    const next = Math.max(1, Math.round(Number(value) || this.maxHp));
+    this.maxHp = next;
+    this.hp = heal ? next : Math.min(this.hp, next);
+    return this.hp;
+  }
+
   get isDown() { return this.down !== 0; }
   get awaitingConfirm() { return this.down === -1; }
 

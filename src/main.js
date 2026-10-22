@@ -14,7 +14,8 @@ import { loadSettings, saveSettings } from './settings.js';
 import { BINDING_ACTIONS, ACTION_LABELS, loadBindings, saveBindings, rebind } from './bindings.js';
 import { loadSave } from './save.js';
 import { WORLD_MAP, projectMapBounds, projectMapPoint } from './worldmap.js';
-import { StoryDeck } from './story.js';
+import { StoryDeck, TOWER_STORY_PAGES } from './story.js';
+import { itemById, itemStatLine, rarityOf } from './items.js';
 
 const $ = query => document.querySelector(query);
 const $$ = query => [...document.querySelectorAll(query)];
@@ -30,21 +31,29 @@ const game = new Game(world, input, {
   skip: $('#skip'), restart: $('#restart'), device: $('#device'),
   warning: $('#warning'), touchControls: $('#touch-controls'),
   fire: $('#fire'), reticle: $('#reticle'),
+  targetAlert: $('#target-alert'),
   pause: $('#pause'), settings: $('#settings'), loading: $('#loading'),
   hud: $('#hud'), title: $('#title'), resume: $('#resume'),
   feedLines: $$('#feed .feed-line'), radarSensei: $('#radar-sensei'), radarEnemies: $$('.radar-dot.raider'),
-  radarQuest: $('#radar-quest'),
+  radarQuest: $('#radar-quest'), radarPlayer: $('#radar-player'), radarNorth: $('.radar-north'),
   quest: $('#quest'), questTitle: $('#quest-title'), questProgress: $('#quest-progress'),
   questDistance: $('#quest-distance'),
+  scan: $('#scan'), scanName: $('#scan-name'), scanLevel: $('#scan-level'),
+  scanState: $('#scan-state'), scanHp: $('#scan-hp'), scanHealth: $('#scan-health-fill'),
+  scanAbilities: $('#scan-abilities'), scanWeaknesses: $('#scan-weaknesses'),
+  scanNote: $('#scan-note'), scanConfidence: $('#scan-confidence'),
   mapScreen: $('#map-screen'), mapPlayers: $$('.mapdot.player'), mapSenseis: $$('.mapdot.sensei'),
   mapEnemies: $$('.mapdot.raider'), mapQuests: $$('.mapdot.quest'),
   menuPages: {
     status: $('[data-page="status"]'), gear: $('[data-page="gear"]'),
-    quests: $('[data-page="quests"]'), map: $('[data-page="map"]'),
+    skills: $('[data-page="skills"]'), quests: $('[data-page="quests"]'), map: $('[data-page="map"]'),
     controls: $('[data-page="controls"]'), system: $('[data-page="system"]')
   },
   menuTabs: $$('#menu-tabs [data-tab]'), menuResume: $('#menu-resume'),
-  statXp: $('#stat-xp'), statCash: $('#stat-cash'), statTutorial: $('#stat-tutorial'),
+  statLevel: $('#stat-level'), statXp: $('#stat-xp'), statXpNext: $('#stat-xp-next'),
+  xpFill: $('#xp-fill'), statCash: $('#stat-cash'), statSkillPoints: $('#stat-skill-points'),
+  statAttack: $('#stat-attack'), statDefense: $('#stat-defense'), statSpeed: $('#stat-speed'),
+  statTower: $('#stat-tower'), statTutorial: $('#stat-tutorial'),
   statPerms: $('#stat-perms'), statScore: $('#stat-score'), saveStatus: $('#save-status')
 }, { requestStart: () => openStory() });
 window.__trainingReady = true;
@@ -218,11 +227,157 @@ $('#quest-list')?.addEventListener('click', event => {
 
 renderQuestList();
 
+// Inventory, equipment and skill-tree views are rebuilt only when the game bumps its
+// progression version, so the menu does not churn DOM every frame.
+let progressionVersion = -1;
+function itemCard(item, { equipped = false, action = 'equip' } = {}) {
+  const card = document.createElement('article');
+  card.className = `item-card rarity-${item.rarity}${equipped ? ' equipped' : ''}`;
+  card.setAttribute('role', 'listitem');
+  const top = document.createElement('div');
+  top.className = 'item-top';
+  const name = document.createElement('b');
+  name.textContent = item.name;
+  const rarity = document.createElement('span');
+  rarity.className = 'item-rarity';
+  rarity.textContent = rarityOf(item).label;
+  top.append(name, rarity);
+  const stats = document.createElement('p');
+  stats.className = 'item-stats';
+  const levelReq = item.levelReq || 1;
+  stats.textContent = `${itemStatLine(item) || 'No stat bonus'} · LV ${levelReq}`;
+  const desc = document.createElement('p');
+  desc.className = 'item-desc';
+  desc.textContent = item.description;
+  const locked = levelReq > game.progression.level;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'item-action';
+  button.dataset.itemAction = action;
+  button.dataset.itemId = item.id;
+  button.textContent = action === 'unequip' ? 'UNEQUIP'
+    : locked ? `LEVEL ${levelReq}` : equipped ? 'EQUIPPED' : 'EQUIP';
+  button.disabled = action !== 'unequip' && (equipped || locked);
+  card.append(top, stats, desc, button);
+  return card;
+}
+
+function renderInventory() {
+  const inventory = game.inventory;
+  const equippedHost = $('#equipped-list');
+  const listHost = $('#inventory-list');
+  const count = $('#inventory-count');
+  const statHost = $('#inventory-stats');
+  if (count) count.textContent = `${inventory.size} / 24`;
+  if (statHost) {
+    const stats = game.playerStats;
+    statHost.textContent = `ACTIVE BONUSES · ATK +${Math.round(stats.attack * 10) / 10} · DEF +${Math.round(stats.defense * 10) / 10} · SPD ${Math.round(stats.speed * 100)}% · HP ${Math.round(stats.maxHp)}`;
+  }
+  if (equippedHost) {
+    equippedHost.replaceChildren();
+    for (const slot of ['weapon', 'armor', 'gear']) {
+      const item = itemById(inventory.equipped[slot]);
+      const row = document.createElement('div');
+      row.className = 'gear-slot';
+      const label = document.createElement('span');
+      label.textContent = slot.toUpperCase();
+      const name = document.createElement('b');
+      name.textContent = item ? item.name : 'EMPTY';
+      const note = document.createElement('em');
+      note.textContent = item ? itemStatLine(item) : 'Nothing equipped in this slot.';
+      row.append(label, name, note);
+      if (item) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'gear-remove';
+        button.dataset.itemAction = 'unequip';
+        button.dataset.itemId = item.id;
+        button.dataset.slot = slot;
+        button.textContent = 'REMOVE';
+        row.append(button);
+      }
+      equippedHost.append(row);
+    }
+  }
+  if (listHost) {
+    listHost.replaceChildren();
+    for (const item of inventory.entries()) {
+      const equipped = ['weapon', 'armor', 'gear'].some(slot => inventory.equipped[slot] === item.id);
+      listHost.append(itemCard(item, { equipped, action: equipped ? 'unequip' : 'equip' }));
+    }
+  }
+}
+
+function renderSkills() {
+  const host = $('#skill-list');
+  const points = $('#skill-points');
+  if (points) points.textContent = String(game.skills.points);
+  if (!host) return;
+  host.replaceChildren();
+  for (const node of game.skills.view()) {
+    const card = document.createElement('article');
+    card.className = `skill-card${node.locked ? ' locked' : ''}${node.rank >= node.maxRank ? ' mastered' : ''}`;
+    card.setAttribute('role', 'listitem');
+    const top = document.createElement('div');
+    top.className = 'skill-top';
+    const branch = document.createElement('span');
+    branch.textContent = node.branch;
+    const rank = document.createElement('b');
+    rank.textContent = `${node.rank} / ${node.maxRank}`;
+    top.append(branch, rank);
+    const name = document.createElement('h4');
+    name.textContent = node.name;
+    const desc = document.createElement('p');
+    desc.textContent = node.description;
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'skill-action';
+    action.dataset.skillId = node.id;
+    action.textContent = node.rank >= node.maxRank ? 'MASTERED'
+      : node.canUnlock ? `LEARN · ${node.cost} PT` : node.reason || 'LOCKED';
+    action.disabled = !node.canUnlock;
+    card.append(top, name, desc, action);
+    host.append(card);
+  }
+}
+
+function renderProgressionUI() {
+  if (progressionVersion === game.progressionVersion) return;
+  progressionVersion = game.progressionVersion;
+  renderInventory();
+  renderSkills();
+}
+
+$('#inventory-list')?.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-item-action]');
+  if (!button) return;
+  if (button.dataset.itemAction === 'unequip') {
+    const item = itemById(button.dataset.itemId);
+    if (item) game.unequipSlot(item.slot);
+  } else {
+    game.equipItem(button.dataset.itemId);
+  }
+  renderProgressionUI();
+});
+$('#equipped-list')?.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-item-action="unequip"]');
+  if (!button) return;
+  game.unequipSlot(button.dataset.slot);
+  renderProgressionUI();
+});
+$('#skill-list')?.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-skill-id]');
+  if (!button) return;
+  game.unlockSkill(button.dataset.skillId);
+  renderProgressionUI();
+});
+
 // Story introduction. Start/Enter opens the deck, Next advances, and the final page's button
 // exits into a new run. The deck is data-driven so later story/dialogue events can reuse it.
 const story = $('#story');
 const titleScreen = $('#title');
-const storyDeck = new StoryDeck();
+let storyDeck = new StoryDeck();
+let storyKickerText = 'A NONLETHAL BEGINNING';
 const storyTitle = $('#story-title');
 const storyKicker = $('#story-kicker');
 const storyBody = $('#story-body');
@@ -238,7 +393,7 @@ let storyAfter = null;
 function renderStory() {
   const page = storyDeck.page;
   if (!page) return;
-  storyKicker.textContent = 'A NONLETHAL BEGINNING';
+  storyKicker.textContent = storyKickerText;
   storyTitle.textContent = page.title;
   storyBody.replaceChildren(...page.body.map(text => {
     const paragraph = document.createElement('p');
@@ -250,10 +405,12 @@ function renderStory() {
   storyConfirm.hidden = true;
 }
 
-function openStory(after = () => game.startNew()) {
+function openStory(after = () => game.startNew(), pages = null, kicker = 'A NONLETHAL BEGINNING') {
   if (storyOpen) return;
   storyOpen = true;
   storyAfter = after;
+  storyDeck = new StoryDeck(pages || undefined);
+  storyKickerText = kicker;
   storyDeck.reset();
   // Hud.sync owns the title's hidden state, so hide it visually as well while story is open.
   titleScreen.style.visibility = 'hidden';
@@ -296,6 +453,14 @@ window.addEventListener('keydown', event => {
   event.preventDefault();
   if (storyConfirm.hidden) requestStorySkip();
   else cancelStorySkip();
+});
+
+game.events.on('tower-link', () => {
+  game.paused = true;
+  openStory(() => {
+    game.paused = false;
+    game.paint();
+  }, TOWER_STORY_PAGES, 'THE FIRST TOWER');
 });
 
 $('#start')?.addEventListener('click', () => openStory());
@@ -450,6 +615,7 @@ function frame(now) {
     pollPadRebind();
     game.update(dt);
     syncQuestList();
+    renderProgressionUI();
     const look = input.consumeLook();
     if ((look.x || look.y) && game.screen === 'playing') world.look(look.x, look.y);
     world.setFeedback({
@@ -460,7 +626,8 @@ function frame(now) {
       swing: game.playerCombat.swingAngle,
       weapon: game.weapon,
       attackMove: game.attackMove,
-      attackProgress: game.playerCombat.attackProgress
+      attackProgress: game.playerCombat.attackProgress,
+      enemyAlerts: game.encounters.map(enemy => ({ alert: enemy.ai.alert, marker: enemy.ai.marker }))
     });
     world.render(dt);
     sampleFrames += 1;

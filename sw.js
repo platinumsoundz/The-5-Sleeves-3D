@@ -2,7 +2,7 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (collision/story shell)
 // App-shell service worker. three.js is pinned and cached too, so the installed game can
 // start offline after one successful online visit. Bump CACHE when asset paths change.
-const CACHE = 'five-sleeves-shell-v3';
+const CACHE = 'five-sleeves-shell-v4';
 const THREE = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const SHELL = [
   './',
@@ -18,20 +18,27 @@ const SHELL = [
   './src/controls.js',
   './src/device.js',
   './src/devcodes.js',
+  './src/enemy.js',
   './src/events.js',
   './src/fighter.js',
   './src/game.js',
   './src/hud.js',
   './src/input.js',
+  './src/inventory.js',
+  './src/items.js',
   './src/log.js',
   './src/main.js',
   './src/match.js',
+  './src/multiplayer.js',
+  './src/progression.js',
   './src/quests.js',
   './src/radar.js',
   './src/resources.js',
   './src/save.js',
+  './src/scan.js',
   './src/scenery.js',
   './src/settings.js',
+  './src/skills.js',
   './src/story.js',
   './src/weapons.js',
   './src/world.js',

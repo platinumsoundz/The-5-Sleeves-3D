@@ -25,6 +25,13 @@ const WILDS_BOUNDS = Object.freeze({
   maxZ: CONFIG.wildMaxZ
 });
 
+const TOWER_BOUNDS = Object.freeze({
+  minX: -CONFIG.towerRadius - 2,
+  maxX: CONFIG.towerRadius + 2,
+  minZ: CONFIG.towerZ - CONFIG.towerRadius - 2,
+  maxZ: CONFIG.towerZ + CONFIG.towerRadius + 2
+});
+
 export const WORLD_MAP = Object.freeze({
   bounds: BOUNDS,
   regions: [
@@ -36,14 +43,21 @@ export const WORLD_MAP = Object.freeze({
     },
     {
       id: 'wilderness',
-      label: 'WILDERNESS',
+      label: 'WILDERNESS ROAD',
       kind: 'wilds',
       bounds: WILDS_BOUNDS
+    },
+    {
+      id: 'first-tower',
+      label: 'FIRST TOWER',
+      kind: 'tower',
+      bounds: TOWER_BOUNDS
     }
   ],
   points: [
     { id: 'gate', label: 'NORTH GATE', kind: 'gate', x: 0, z: -11.7 },
-    { id: 'outpost', label: 'ENEMY OUTPOST', kind: 'outpost', x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ }
+    { id: 'outpost', label: 'ENEMY OUTPOST', kind: 'outpost', x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ },
+    { id: 'first-tower', label: 'FIRST TOWER', kind: 'tower', x: CONFIG.towerX, z: CONFIG.towerZ }
   ]
 });
 

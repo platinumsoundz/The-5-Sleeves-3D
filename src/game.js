@@ -23,14 +23,22 @@ import { WEAPON_ORDER, UNARMED_MOVES, weaponById, cycleWeapon as nextWeapon } fr
 import { QuestLog, resolveQuestTarget } from './quests.js';
 import { WORLD_MAP } from './worldmap.js';
 import { resolveSolidCollisions } from './collision.js';
+import { Progression, mergeStats, mitigatedDamage, statsForLevel } from './progression.js';
+import { SkillTree } from './skills.js';
+import { Inventory, createStarterInventory } from './inventory.js';
+import { itemById, itemStatLine, rarityOf } from './items.js';
+import { RaiderAI, inVisionCone, ALERT } from './enemy.js';
+import { scanEnemy } from './scan.js';
 
 const START = { player: 2.5, sensei: -2.5 };
 const clamp = n => Math.max(-CONFIG.arenaLimit, Math.min(CONFIG.arenaLimit, n));
 const clampRange = (n, min, max) => Math.max(min, Math.min(max, n));
 
 export class Game {
-  constructor(world, input, ui, { events = new Events(), requestStart = null } = {}) {
-    Object.assign(this, { world, input, ui, events, requestStart });
+  constructor(world, input, ui, {
+    events = new Events(), requestStart = null, random = Math.random
+  } = {}) {
+    Object.assign(this, { world, input, ui, events, requestStart, random });
     this.hud = new Hud(ui);
     this.player = new FighterState({ needsConfirm: true });
     this.sensei = new FighterState();
@@ -44,8 +52,22 @@ export class Game {
       parts: enemy.parts,
       weapon: enemy.weapon || 'staff',
       home: enemy.home || { x: enemy.root?.position?.x || 0, z: enemy.root?.position?.z || 0 },
-      state: new FighterState({ maxHp: CONFIG.wildEnemyHp }),
-      ai: new SenseiAI(),
+      state: new FighterState({ maxHp: enemy.maxHp || CONFIG.wildEnemyHp }),
+      combat: new CombatState(),
+      ai: new RaiderAI({
+        reach: enemy.reach || CONFIG.wildReach || 1.85,
+        windup: enemy.windup || CONFIG.wildWindup || .5,
+        cooldown: enemy.cooldown || CONFIG.wildCooldown || 1.05,
+        accuracy: enemy.accuracy || .72
+      }),
+      level: enemy.level || 2,
+      abilities: Array.isArray(enemy.abilities) ? [...enemy.abilities] : [],
+      weaknesses: Array.isArray(enemy.weaknesses) ? [...enemy.weaknesses] : [],
+      loot: enemy.loot || '',
+      cash: enemy.cash || 0,
+      xp: enemy.xp || 0,
+      scannedBefore: false,
+      looted: false,
       defeated: false
     }));
     this.zone = 'training';
@@ -55,11 +77,19 @@ export class Game {
     this.unarmedStep = 0;
     this.unarmedTimer = 0;
     this.outpostReached = false;
+    this.towerEntered = false;
+    this.towerLinked = false;
     this.lockTarget = null;
+    this.scan = null;
+    this.playerStagger = 0;
     this.stamina = new Resource(CONFIG.maxStamina, { regen: CONFIG.staminaRegen, delay: CONFIG.staminaDelay });
     this.sleeveAcquired = false;
     this.log = new EventFeed();
-    this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.permissions = [];
+    this.progression = new Progression();
+    this.skills = new SkillTree();
+    this.inventory = createStarterInventory();
+    this.progressionVersion = 0;
     this.questLog = new QuestLog();
     this.questVersion = 0;
     this.screen = 'playing';
@@ -107,12 +137,16 @@ export class Game {
     this.unarmedTimer = 0;
     this.outpostReached = false;
     this.lockTarget = null;
+    this.scan = null;
+    this.playerStagger = 0;
+    this.sleeveAcquired = false;
     this.world.playerParts?.setWeapon?.('staff');
     this.player.reset();
     this.sensei.reset();
     this.playerCombat.reset();
     this.ai.reset();
     this.match.reset();
+    this.refreshVitals({ heal: true });
     this.stamina.reset();
     this.resetFighters();
     this.resetEncounters();
@@ -138,9 +172,15 @@ export class Game {
   }
 
   startNew() {
-    this.progress = { xp: 0, cash: 0, permissions: [] };
+    this.progression.reset();
+    this.skills.reset();
+    this.inventory = createStarterInventory();
+    this.permissions = [];
     this.questLog.reset();
+    this.towerEntered = false;
+    this.towerLinked = false;
     this.questVersion += 1;
+    this.bumpProgression();
     this.log.clear();
     this.restart();
     this.log.push('Training started.', 'info');
@@ -148,13 +188,23 @@ export class Game {
   }
 
   applySave(save) {
-    this.progress = {
-      xp: save?.xp || 0,
-      cash: save?.cash || 0,
-      permissions: Array.isArray(save?.permissions) ? [...save.permissions] : []
-    };
+    this.progression = new Progression(save?.progression || {
+      level: save?.level,
+      xp: save?.xp,
+      cash: save?.cash
+    });
+    this.skills = new SkillTree(save?.skills);
+    // Old v1 slots predate inventory snapshots. They keep the starter kit instead of starting
+    // naked; a real empty inventory snapshot still restores as empty.
+    this.inventory = save?.inventory
+      ? new Inventory(save.inventory)
+      : createStarterInventory();
+    this.permissions = Array.isArray(save?.permissions) ? [...save.permissions] : [];
     this.questLog.restore(save?.quests);
+    this.towerEntered = save?.tower?.entered === true;
+    this.towerLinked = save?.tower?.linked === true;
     this.questVersion += 1;
+    this.bumpProgression();
   }
 
   resume(save) {
@@ -171,10 +221,12 @@ export class Game {
   buildSave() {
     return {
       tutorialDone: this.phase !== 'tutorial',
-      xp: this.progress.xp,
-      cash: this.progress.cash,
-      permissions: [...this.progress.permissions],
-      quests: this.questLog.snapshot()
+      progression: this.progression.snapshot(),
+      inventory: this.inventory.snapshot(),
+      skills: this.skills.snapshot(),
+      permissions: [...this.permissions],
+      quests: this.questLog.snapshot(),
+      tower: { entered: this.towerEntered, linked: this.towerLinked }
     };
   }
 
@@ -193,13 +245,115 @@ export class Game {
   }
 
   redeemDev(raw) {
-    const result = redeemDevCode(this.progress, raw);
+    const result = redeemDevCode({
+      xp: this.progression.xp,
+      cash: this.progression.cash,
+      permissions: [...this.permissions]
+    }, raw);
     if (result.ok) {
-      this.progress = result.save;
+      const effect = result.effect || {};
+      const levels = this.grantXp(effect.xp || 0, { quiet: true });
+      this.grantCash(effect.cash || 0, { quiet: true });
+      if (effect.permission) this.permissions = [...new Set([...this.permissions, effect.permission])];
+      for (const id of effect.items || []) this.grantItem(id);
       this.log.push(result.message, 'loot');
+      if (levels > 0) this.log.push(`Level ${this.progression.level} reached. +${levels} skill point${levels === 1 ? '' : 's'}.`, 'good');
+      this.bumpProgression();
     }
     this.paint();
     return result;
+  }
+
+  bumpProgression() {
+    this.progressionVersion += 1;
+  }
+
+  get playerStats() {
+    return mergeStats(
+      statsForLevel(this.progression.level),
+      this.skills.bonuses(),
+      this.inventory.bonuses(this.weapon === 'cipher' ? '' : this.weapon)
+    );
+  }
+
+  refreshVitals({ heal = false } = {}) {
+    const stats = this.playerStats;
+    this.player.setMaxHp(stats.maxHp, { heal });
+    this.stamina.max = stats.maxStamina;
+    if (!heal) this.stamina.value = Math.min(this.stamina.value, this.stamina.max);
+    return stats;
+  }
+
+  grantXp(amount, { quiet = false } = {}) {
+    const levels = this.progression.addXp(amount);
+    if (levels > 0) {
+      this.skills.addPoints(levels);
+      this.refreshVitals({ heal: true });
+      if (!quiet) this.log.push(`Level ${this.progression.level}. +${levels} skill point${levels === 1 ? '' : 's'}.`, 'good');
+      this.events.emit('level-up', { level: this.progression.level });
+    }
+    this.bumpProgression();
+    return levels;
+  }
+
+  grantCash(amount, { quiet = false } = {}) {
+    const gain = this.progression.addCash(amount);
+    if (gain && !quiet) this.log.push(`+${gain} cash.`, 'loot');
+    this.bumpProgression();
+    return gain;
+  }
+
+  grantItem(id) {
+    if (!itemById(id)) return false;
+    const added = this.inventory.add(id);
+    if (added) {
+      this.log.push(`Found ${itemById(id).name}.`, 'loot');
+      this.bumpProgression();
+    }
+    return added;
+  }
+
+  equipItem(id) {
+    const item = itemById(id);
+    if (!item) return false;
+    if (item.levelReq && this.progression.level < item.levelReq) {
+      this.log.push(`${item.name} requires level ${item.levelReq}.`, 'warn');
+      this.paint();
+      return false;
+    }
+    if (!this.inventory.equip(id)) return false;
+    if (item.slot === 'weapon' && ['staff', 'katana'].includes(item.kind) && this.weapon !== item.kind) {
+      this.weapon = item.kind;
+      this.weaponIndex = WEAPON_ORDER.indexOf(item.kind);
+      this.world.playerParts?.setWeapon?.(this.weapon);
+    }
+    this.refreshVitals({ heal: false });
+    this.bumpProgression();
+    this.log.push(`${item.name} equipped.`, 'good');
+    this.paint();
+    return true;
+  }
+
+  unequipSlot(slot) {
+    if (!this.inventory.unequip(slot)) return false;
+    this.refreshVitals({ heal: false });
+    this.bumpProgression();
+    this.paint();
+    return true;
+  }
+
+  unlockSkill(id) {
+    const result = this.skills.unlock(id);
+    if (!result.ok) {
+      this.log.push(result.message, 'warn');
+      this.paint();
+      return false;
+    }
+    this.refreshVitals({ heal: false });
+    this.bumpProgression();
+    this.log.push(result.message, 'good');
+    this.paint();
+    return true;
   }
 
   setSaveInfo(save) {
@@ -244,6 +398,8 @@ export class Game {
       outpostReached: this.outpostReached,
       raidersDefeated: this.encounters.filter(enemy => enemy.defeated).length,
       raidersTotal: this.encounters.length,
+      towerEntered: this.towerEntered,
+      towerLinked: this.towerLinked,
       sparWon: this.match.over && this.match.winner === 'player'
     };
   }
@@ -252,9 +408,14 @@ export class Game {
     const quest = this.questLog.activeQuest;
     if (!quest) return null;
     const nearest = this.nearestEnemy();
+    const gate = this.zone === 'wilds'
+      ? { x: 0, z: CONFIG.wildMaxZ }
+      : this.zone === 'tower'
+        ? { x: CONFIG.towerX || 0, z: (CONFIG.towerZ || -91) + (CONFIG.towerInteriorRadius || 10.2) }
+        : { x: 0, z: -10.6 };
     return resolveQuestTarget(quest, {
       zone: this.zone,
-      gate: { x: 0, z: this.zone === 'wilds' ? CONFIG.wildMaxZ : -10.6 },
+      gate,
       nearestRaider: nearest?.root?.position || null,
       sensei: this.world.sensei.position
     });
@@ -291,13 +452,17 @@ export class Game {
     const completed = this.questLog.check(this.questProgress());
     if (!completed) return;
     this.questVersion += 1;
-    this.progress.xp += completed.rewardXp || 0;
-    this.show(`Quest complete — ${completed.title}. +${completed.rewardXp || 0} XP.`);
+    const xp = completed.rewardXp || 0;
+    const cash = completed.rewardCash || 0;
+    this.grantXp(xp, { quiet: true });
+    this.grantCash(cash, { quiet: true });
+    this.show(`Quest complete — ${completed.title}. +${xp} XP${cash ? ` · +${cash} cash` : ''}.`);
     this.log.push(`Quest complete — ${completed.title}.`, 'good');
     this.events.emit('quest-complete', {
       id: completed.id,
       title: completed.title,
-      rewardXp: completed.rewardXp || 0
+      rewardXp: xp,
+      rewardCash: cash
     });
   }
 
@@ -371,7 +536,14 @@ export class Game {
       return;
     }
 
-    this.handleWeaponInput();
+    if (this.paused) {
+      this.paint();
+      this.input.endFrame();
+      return;
+    }
+
+    if (this.playerStagger > 0) this.playerStagger = Math.max(0, this.playerStagger - dt);
+    if (this.playerStagger <= 0) this.handleWeaponInput();
     this.stamina.update(dt);
     const move = this.input.move();
     const dx = move.x;
@@ -381,6 +553,8 @@ export class Game {
     this.lockTarget = this.combatTarget();
     this.locked = this.aiming && !!this.lockTarget;
     this.world.setLocked(this.locked);
+    this.scan = this.aiming && this.lockTarget && this.weapon === 'cipher'
+      ? this.buildScan(this.lockTarget) : null;
     this.blocking = this.phase !== 'result' && !this.player.isDown
       && this.input.isDown('guard') && !this.playerCombat.invulnerable
       && !this.playerCombat.guardBroken;
@@ -393,7 +567,7 @@ export class Game {
       else this.movePlayer(dt, dx, dz);
       this.updateZone();
       this.advanceTimers(dt);
-      if (this.zone === 'wilds') this.moveWildEnemies(dt);
+      if (this.zone === 'wilds' || this.zone === 'tower') this.moveWildEnemies(dt);
       else this.moveSensei(dt);
       this.advanceRound(dt);
     }
@@ -441,8 +615,27 @@ export class Game {
   }
 
   combatTarget() {
-    if (this.zone === 'wilds') return this.nearestEnemy();
+    if (this.zone === 'wilds' || this.zone === 'tower') return this.nearestEnemy();
     return this.phase === 'result' ? null : this.world.sensei;
+  }
+
+  buildScan(target) {
+    if (!target) return null;
+    if (target.state && target.ai && target.name) {
+      const data = scanEnemy(target);
+      if (data) target.scannedBefore = true;
+      return data;
+    }
+    return scanEnemy({
+      id: 'sensei',
+      name: 'SENSEI',
+      level: 5,
+      state: this.sensei,
+      ai: this.ai,
+      weapon: 'staff',
+      abilities: ['STAFF FORM', 'GUARD', 'PARRY', 'DODGE'],
+      weaknesses: ['Punish a missed swing.', 'Guard pressure eventually breaks.']
+    });
   }
 
   nearestEnemy(maxDistance = Infinity) {
@@ -483,6 +676,10 @@ export class Game {
     if (this.zone === 'training') {
       position.x = clampRange(position.x, -CONFIG.trainingHalfX, CONFIG.trainingHalfX);
       position.z = clampRange(position.z, -10.6, CONFIG.trainingMaxZ);
+    } else if (this.zone === 'tower') {
+      const radius = (CONFIG.towerRadius || 15) + .8;
+      position.x = clampRange(position.x, -radius, radius);
+      position.z = clampRange(position.z, CONFIG.towerZ - radius, CONFIG.towerZ + radius);
     } else {
       position.x = clampRange(position.x, -CONFIG.wildHalfX, CONFIG.wildHalfX);
       position.z = clampRange(position.z, CONFIG.wildMinZ, CONFIG.wildMaxZ);
@@ -545,26 +742,84 @@ export class Game {
 
   updateZone() {
     const position = this.world.player.position;
-    if (this.zone !== 'wilds' || this.outpostReached) return;
-    const outpost = { x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ };
-    const distance = Math.hypot(position.x - outpost.x, position.z - outpost.z);
-    if (distance > CONFIG.wildOutpostReach) return;
-    this.outpostReached = true;
-    this.show('Enemy outpost reached. The test slice ends here.');
-    this.log.push('Reached the enemy outpost.', 'good');
-    this.events.emit('outpost-reached', { outpost });
+    const tower = { x: CONFIG.towerX || 0, z: CONFIG.towerZ || -91 };
+    const towerDistance = Math.hypot(position.x - tower.x, position.z - tower.z);
+
+    if (this.zone === 'wilds') {
+      if (!this.outpostReached) {
+        const outpost = { x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ };
+        const distance = Math.hypot(position.x - outpost.x, position.z - outpost.z);
+        if (distance <= CONFIG.wildOutpostReach) {
+          this.outpostReached = true;
+          this.show('Enemy outpost reached. The first tower rises beyond it.');
+          this.log.push('Reached the enemy outpost.', 'good');
+          this.events.emit('outpost-reached', { outpost });
+        }
+      }
+      if (towerDistance <= (CONFIG.towerInteriorRadius || 10.2)) {
+        this.zone = 'tower';
+        this.world.setZone?.('tower');
+        this.towerEntered = true;
+        this.show('First Tower — the five channels are quiet.');
+        this.log.push('Entered the First Tower.', 'good');
+        this.events.emit('tower-entered', { tower });
+        this.events.emit('zone', { zone: 'tower' });
+      }
+      return;
+    }
+
+    if (this.zone === 'tower' && towerDistance > (CONFIG.towerInteriorRadius || 10.2) + .8) {
+      this.zone = 'wilds';
+      this.world.setZone?.('wilds');
+      this.show('Wilderness — the tower door stands open behind you.');
+      this.events.emit('zone', { zone: 'wilds' });
+    }
+  }
+
+  nearTowerConsole() {
+    if (this.zone !== 'tower') return false;
+    const position = this.world.player.position;
+    return Math.hypot(position.x - (CONFIG.towerX || 0), position.z - ((CONFIG.towerZ || -91) + 2.2)) <= 2.1;
+  }
+
+  useTowerConsole() {
+    if (!this.nearTowerConsole()) return false;
+    if (this.towerLinked) {
+      this.show('The five channels hold their low, patient note.');
+      return true;
+    }
+    this.towerLinked = true;
+    this.grantXp(450, { quiet: true });
+    this.grantCash(150, { quiet: true });
+    const recovered = this.grantItem('guardian-plate');
+    this.log.push('First Tower linked. The five channels answer.', 'good');
+    if (recovered) this.log.push('A heavy guardian plate was recovered.', 'loot');
+    this.show('The five channels answer. Cipher has not spoken.');
+    this.events.emit('tower-link', { tower: { x: CONFIG.towerX || 0, z: CONFIG.towerZ || -91 } });
+    this.updateQuests();
+    this.paint();
+    return true;
+  }
+
+  interact() {
+    if (this.useTowerConsole()) return true;
+    if (this.useGate()) return true;
+    return false;
   }
 
   resetEncounters() {
     for (const enemy of this.encounters) {
       enemy.state.reset();
       enemy.ai.reset();
+      enemy.combat?.reset();
       enemy.defeated = false;
+      enemy.looted = false;
+      enemy.scannedBefore = false;
       if (!enemy.root) continue;
       enemy.root.visible = true;
       enemy.root.position.set(enemy.home.x, 0, enemy.home.z);
       this.constrainWildEnemy(enemy.root.position);
-      enemy.root.rotation.set(0, Math.PI, 0);
+      enemy.root.rotation.set(0, 0, 0);
     }
   }
 
@@ -581,14 +836,15 @@ export class Game {
       stats = weaponById(this.weapon);
       move = this.weapon === 'cipher' ? 'sleeve' : 'swing';
     }
+    const effective = { ...stats, damage: (Number(stats.damage) || 0) + this.playerStats.attack };
     this.playerCombat.beginAttack({ cooldown: stats.cooldown, duration: stats.anim });
     this.attackMove = move;
     this.events.emit('swing', { weapon: this.weapon, move });
-    this.resolveAttack(stats, move);
+    this.resolveAttack(effective, move);
   }
 
   resolveAttack(stats, move) {
-    if (this.zone === 'wilds') {
+    if (this.zone === 'wilds' || this.zone === 'tower') {
       this.resolveWildAttack(stats, move);
       return;
     }
@@ -627,7 +883,38 @@ export class Game {
       return;
     }
 
-    const result = target.state.hit(stats.damage);
+    const reaction = target.ai.reactToAttack(distance, { random: this.random });
+    if (reaction === 'parry') {
+      this.playerStagger = Math.max(this.playerStagger, .55);
+      this.events.emit('parry', { target: target.id, by: 'enemy' });
+      this.show(`${target.name} parried — recover your guard.`);
+      this.log.push(`${target.name} parried your strike.`, 'warn');
+      return;
+    }
+    if (reaction === 'dodge') {
+      const vx = this.world.player.position.x - target.root.position.x;
+      const vz = this.world.player.position.z - target.root.position.z;
+      const length = Math.hypot(vx, vz) || 1;
+      const side = (this.random?.() ?? Math.random()) < .5 ? 1 : -1;
+      target.combat.beginDodge(-vz / length * side, vx / length * side, target.root.rotation.y);
+      target.ai.alert = ALERT.SPOTTED;
+      this.events.emit('dodge', { target: target.id });
+      this.show(`${target.name} slipped the strike.`);
+      return;
+    }
+
+    let damage = stats.damage;
+    if (reaction === 'block') {
+      damage *= CONFIG.blockDamageScale;
+      if (target.combat.registerBlock()) {
+        target.ai.stagger(1.1);
+        this.show(`${target.name}'s guard breaks.`);
+        this.log.push(`${target.name}'s guard broken.`, 'good');
+      }
+      this.events.emit('block', { target: target.id });
+    }
+
+    const result = target.state.hit(damage);
     if (result === KNOCKDOWN) {
       this.onEnemyDown(target);
       return;
@@ -642,9 +929,16 @@ export class Game {
   }
 
   onEnemyDown(enemy) {
+    if (enemy.defeated) return;
     enemy.defeated = true;
     enemy.root.rotation.z = Math.PI / 2;
     enemy.root.position.y = -.35;
+    this.grantXp(enemy.xp || 60, { quiet: true });
+    this.grantCash(enemy.cash || 25, { quiet: true });
+    if (enemy.loot && !enemy.looted) {
+      enemy.looted = true;
+      this.grantItem(enemy.loot);
+    }
     this.show(`${enemy.name} down — out of the fight.`);
     this.log.push(`${enemy.name} knocked down.`, 'good');
     this.events.emit('enemy-down', { target: enemy.id, name: enemy.name });
@@ -654,32 +948,49 @@ export class Game {
     const player = this.world.player;
     for (const enemy of this.encounters) {
       if (enemy.defeated || !enemy.root) continue;
+      enemy.combat?.tick(dt);
       const point = enemy.root.position;
       const vx = player.position.x - point.x;
       const vz = player.position.z - point.z;
       const distance = Math.hypot(vx, vz);
-      const active = distance < CONFIG.wildAggro && !this.player.isDown && this.phase !== 'result';
+      const playerVisible = distance <= (enemy.ai.visionRange || CONFIG.wildAggro);
+      const playerInCone = inVisionCone(point, enemy.root.rotation.y, player.position, {
+        range: enemy.ai.visionRange || CONFIG.wildAggro
+      });
       const intent = enemy.ai.update(dt, {
-        active,
-        senseiDown: enemy.state.isDown,
+        distance,
+        selfDown: enemy.state.isDown,
         playerDown: this.player.isDown,
-        playerInvulnerable: this.playerCombat.invulnerable,
-        distance
+        playerVisible,
+        playerInCone,
+        random: this.random
       });
 
-      if (intent.approach && distance > .001) {
+      if (enemy.combat && enemy.combat.dodgeTimer > 0) {
+        point.x += enemy.combat.dodgeDir.x * CONFIG.dodgeSpeed * .62 * dt;
+        point.z += enemy.combat.dodgeDir.z * CONFIG.dodgeSpeed * .62 * dt;
+        this.constrainWildEnemy(point);
+      } else if (intent.approach && distance > .001) {
         point.x += vx / distance * CONFIG.wildSpeed * dt;
         point.z += vz / distance * CONFIG.wildSpeed * dt;
         this.constrainWildEnemy(point);
       }
-      if (distance > .001) enemy.root.rotation.y = Math.atan2(vx, vz);
+
+      if (distance > .001) {
+        const wanted = Math.atan2(vx, vz);
+        if (intent.alert !== ALERT.CALM) {
+          const delta = Math.atan2(Math.sin(wanted - enemy.root.rotation.y), Math.cos(wanted - enemy.root.rotation.y));
+          enemy.root.rotation.y += delta * Math.min(1, dt * 8);
+        }
+      }
+
       const weaponNode = enemy.parts?.[enemy.weapon === 'katana' ? 'katana' : 'stick'];
       if (weaponNode) {
-        const targetZ = enemy.ai.windingUp ? .72 : 0;
+        const targetZ = enemy.ai.windingUp ? .72 : enemy.ai.staggered ? -.35 : 0;
         weaponNode.rotation.z += (targetZ - weaponNode.rotation.z) * Math.min(1, dt * 12);
       }
 
-      if (!intent.strike || this.player.isDown) continue;
+      if (!intent.strike || this.player.isDown || this.phase === 'result') continue;
       if (this.playerCombat.parryReady) {
         this.playerCombat.consumeParry();
         this.playerCombat.clearBlockPressure();
@@ -687,11 +998,12 @@ export class Game {
         this.knockback(enemy.root, player, CONFIG.knockback * 2);
         this.show('Parried. The raider is open.');
         this.log.push('Parried a raider.', 'good');
-        this.events.emit('parry');
+        this.events.emit('parry', { target: enemy.id, by: 'player' });
         continue;
       }
 
-      const damage = this.blocking ? CONFIG.wildDamage * CONFIG.blockDamageScale : CONFIG.wildDamage;
+      const incoming = this.blocking ? CONFIG.wildDamage * CONFIG.blockDamageScale : CONFIG.wildDamage;
+      const damage = mitigatedDamage(incoming, this.playerStats.defense);
       const result = this.player.hit(damage);
       this.knockback(player, enemy.root, CONFIG.knockback);
       if (result === KNOCKDOWN) {
@@ -755,10 +1067,15 @@ export class Game {
   movePlayer(dt, dx, dz) {
     const player = this.world.player;
     const sensei = this.world.sensei;
+    if (this.playerStagger > 0) {
+      this.constrainPlayer(player.position);
+      return;
+    }
     const sprinting = this.input.isDown('sprint') && !this.blocking
       && (dx || dz) && this.stamina.value > 0;
     if (sprinting) this.stamina.drain(CONFIG.sprintCost, dt);
     const speed = (sprinting ? CONFIG.sprint : CONFIG.move)
+      * (1 + Math.max(-.5, this.playerStats.speed))
       * (this.blocking ? CONFIG.guardSpeed : 1);
 
     if (this.playerCombat.dodgeTimer > 0) {
@@ -788,7 +1105,7 @@ export class Game {
       if (player.position.y < 0) { player.position.y = 0; player.userData.vy = 0; }
     }
 
-    if (this.input.consume('interact')) this.useGate();
+    if (this.input.consume('interact')) this.interact();
 
     if (this.input.consume('guard')) {
       if ((dx || dz) && this.stamina.spend(CONFIG.dodgeCost)) {
@@ -801,7 +1118,8 @@ export class Game {
       }
     }
 
-    if (this.input.consume('attack') && this.playerCombat.canAttack && !this.blocking) {
+    if (this.playerStagger <= 0 && this.input.consume('attack')
+      && this.playerCombat.canAttack && !this.blocking) {
       this.beginPlayerAttack();
     }
   }
@@ -865,7 +1183,8 @@ export class Game {
         this.events.emit('parry');
         return;
       }
-      const damage = this.blocking ? CONFIG.senseiDamage * CONFIG.blockDamageScale : CONFIG.senseiDamage;
+      const incoming = this.blocking ? CONFIG.senseiDamage * CONFIG.blockDamageScale : CONFIG.senseiDamage;
+      const damage = mitigatedDamage(incoming, this.playerStats.defense);
       const result = this.player.hit(damage);
       this.knockback(player, sensei, CONFIG.knockback);
       if (result === KNOCKDOWN) {
@@ -903,7 +1222,9 @@ export class Game {
     this.resultText = this.match.winner === 'player' ? 'YOU WIN THE SPAR' : 'SENSEI WINS THE SPAR';
     this.skipVisible = false;
     this.restartVisible = true;
-    this.show(`Spar complete — ${this.match.score}. Restart to spar again.`);
+    this.grantXp(120, { quiet: true });
+    this.grantCash(40, { quiet: true });
+    this.show(`Spar complete — ${this.match.score}. +120 XP · +40 cash.`);
     this.log.push(this.match.winner === 'player' ? 'Spar won.' : 'Spar lost — Sensei takes it.', 'info');
     this.events.emit('match-end', { winner: this.match.winner });
     this.paint();
@@ -993,28 +1314,36 @@ export class Game {
   paint() {
     const player = this.world.player;
     const sensei = this.world.sensei;
-    const target = this.zone === 'wilds' ? this.nearestEnemy() : null;
-    const targetHp = this.zone === 'wilds' ? (target?.state.hp ?? 0) : this.sensei.hp;
-    const targetDown = this.zone === 'wilds' ? (target?.state.isDown ?? false) : this.sensei.isDown;
-    const warning = this.zone === 'wilds'
-      ? !!target?.ai?.windingUp
-      : this.ai.windingUp;
+    const inWilds = this.zone === 'wilds' || this.zone === 'tower';
+    const target = inWilds ? this.nearestEnemy() : null;
+    const targetHp = inWilds ? (target?.state.hp ?? 0) : this.sensei.hp;
+    const targetDown = inWilds ? (target?.state.isDown ?? false) : this.sensei.isDown;
+    const warning = inWilds ? !!target?.ai?.windingUp : this.ai.windingUp;
     const weapon = weaponById(this.weapon);
     const activeQuest = this.activeQuestView();
     const prompt = this.phase === 'result'
       ? 'Spar complete — use RESTART PRACTICE to spar again.'
-      : this.outpostReached
-        ? 'Enemy outpost reached — the wilderness test slice ends here.'
+      : this.nearTowerConsole()
+        ? 'USE / F: interface with the tower console.'
         : this.nearGate()
           ? 'USE / F: pass through the north gate.'
-          : this.input.controlHints(this.phase, this.player.isDown ? this.player.down : 0);
+          : this.zone === 'tower'
+            ? 'First Tower — five channels surround the control dais.'
+            : this.outpostReached
+              ? 'Enemy outpost reached — the first tower rises beyond it.'
+              : this.input.controlHints(this.phase, this.player.isDown ? this.player.down : 0);
+    const stats = this.playerStats;
+    const xpNext = this.progression.xpToNext;
 
     this.hud.sync({
-      phase: this.zone === 'wilds' ? 'wilds' : this.phase,
+      phase: this.zone === 'wilds' ? 'wilds' : this.zone === 'tower' ? 'tower' : this.phase,
       playerHp: this.player.hp,
+      playerMaxHp: this.player.maxHp,
       senseiHp: targetHp,
       targetDown,
-      targetName: this.zone === 'wilds' ? (target?.name || 'WILDERNESS') : 'SENSEI',
+      targetName: inWilds ? (target?.name || 'WILDERNESS') : 'SENSEI',
+      targetLevel: inWilds ? target?.level || 0 : 5,
+      targetAlert: inWilds ? target?.ai?.marker || '' : '',
       playerScore: this.match.player,
       senseiScore: this.match.sensei,
       needed: this.match.needed,
@@ -1033,9 +1362,14 @@ export class Game {
       menuFrom: this.menuFrom,
       hasSave: this.hasSave,
       save: this.saveInfo,
-      xp: this.progress.xp,
-      cash: this.progress.cash,
-      permissions: this.progress.permissions,
+      progression: this.progression.snapshot(),
+      level: this.progression.level,
+      xp: this.progression.xp,
+      xpNext,
+      xpRatio: this.progression.xpRatio,
+      cash: this.progression.cash,
+      skillPoints: this.skills.points,
+      permissions: this.permissions,
       tutorialDone: this.phase !== 'tutorial',
       stamina: this.stamina.ratio,
       sleeveAcquired: this.sleeveAcquired || this.weapon === 'cipher',
@@ -1046,6 +1380,8 @@ export class Game {
       weaponTest: weapon.testOnly === true,
       zone: this.zone,
       outpostReached: this.outpostReached,
+      towerEntered: this.towerEntered,
+      towerLinked: this.towerLinked,
       feed: this.log.items,
       player: { x: player.position.x, z: player.position.z, yaw: player.rotation.y },
       sensei: { x: sensei.position.x, z: sensei.position.z },
@@ -1054,12 +1390,19 @@ export class Game {
         name: enemy.name,
         x: enemy.root?.position?.x ?? enemy.home.x,
         z: enemy.root?.position?.z ?? enemy.home.z,
-        alive: !enemy.defeated
+        alive: !enemy.defeated,
+        level: enemy.level,
+        alert: enemy.ai.alert,
+        marker: enemy.ai.marker
       })),
+      scan: this.scan,
+      stats,
+      inventory: this.inventory.snapshot(),
       activeQuest,
       map: { bounds: WORLD_MAP.bounds, regions: WORLD_MAP.regions, points: WORLD_MAP.points },
-      radarRange: this.zone === 'wilds' ? CONFIG.radarWildRange : CONFIG.radarRange,
-      arena: this.zone === 'wilds' ? 70 : CONFIG.arenaLimit
+      radarRange: this.zone === 'wilds' ? CONFIG.radarWildRange
+        : this.zone === 'tower' ? CONFIG.radarTowerRange : CONFIG.radarRange,
+      arena: this.zone === 'wilds' ? 70 : this.zone === 'tower' ? (CONFIG.towerRadius || 15) : CONFIG.arenaLimit
     });
   }
 }

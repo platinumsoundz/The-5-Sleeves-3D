@@ -553,8 +553,42 @@ then the service-worker cache was bumped so installed clients refresh the icon s
 runtime files should not be replaced individually: update the single source and regenerate all
 five exports.
 
+**Progression, First Tower, enemy defence, scan and multiplayer scaffolding (2026-10-22)**
+
+- Added pure `progression.js` (level 1–20, rising XP curve, cash ledger, derived stats,
+  mitigation), `items.js` (prototype common→legendary catalogue, values and stat lines),
+  `inventory.js` (24 slots, weapon/armour/gear equipment and active-kind bonuses), `skills.js`
+  (passive movement/defence/conditioning/striking tree) and `enemy.js` (vision cone, alert
+  markers, auto-approach, block/parry/dodge reactions).
+- Added `scan.js` for a limited test-sleeve tactical readout and `multiplayer.js` for pure
+  lobby/presence/party/chat state plus a drained transport outbox. The multiplayer module is not
+  imported by story mode and no live networking is implemented.
+- `save.js` is now schema v2 with progression, inventory, skills, permissions, quests and tower
+  state; old flat XP/cash slots migrate and receive the starter kit if inventory is absent.
+- `game.js` now merges level, skill and gear stats into combat/movement, grants XP/cash/item
+  rewards, tracks tower entry/link, handles the test-sleeve scan target, and routes attacks in
+  both wilderness and tower. `scenery.js` adds the walkable First Tower (outer monumental wall,
+  inner control chamber, dais, five channels, console) beyond the outpost and extends the road.
+- `hud.js` projects a north-up bird's-eye radar with a rotating player heading arrow, enemy alert
+  states, scan overlay, progression readouts and tower status. `main.js` builds inventory/skill
+  cards and opens the tower story deck. `index.html`/`styles.css` add the scan, skills/inventory,
+  target-alert, north marker and tower map presentation.
+- Two new quests cover entering the tower and linking its five channels. The link is deliberately
+  local: channels answer, Cipher is silent, and no activation power or global effect is defined.
+- Updated the service-worker shell for the new modules and bumped the cache to
+  `five-sleeves-shell-v4`.
+
+**Verification:** `node --check` clean on all JS and `sw.js`; `npm test` → 89/89. New
+`tests/features.test.mjs` covers the level curve, cash, mitigation, item rarity/stat lines,
+inventory/equipment, skill prerequisites and bonuses, raider vision/alert/defence, scan fields,
+north-up projection, tower quests/save state and multiplayer bounds/isolation. Game tests were
+updated for starter gear (+8 HP, +3 defence, +2 attack), mitigation and schema v2 saves. No
+browser/device render pass was run here: menu cards, tower interior, scan overlay, north-up
+minimap feel, enemy markers, loading and performance still need the owner's screen test.
+
 **Gaps/next:** touch-button layout remains deferred. The story deck currently has no branches,
-portraits or seen-state save.
+portraits or seen-state save. The tower activation effect, first Cipher speech and live networking
+remain owner-approval/backend items.
 
 **Preview:** commit-pinned raw.githack URL: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/95dec2b/index.html`.
 
@@ -563,3 +597,5 @@ portraits or seen-state save.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (solid scenery, enemy outpost rename, story introduction)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (progression, inventory, skills, enemy vision, First Tower, scan, north-up minimap, multiplayer scaffolding)

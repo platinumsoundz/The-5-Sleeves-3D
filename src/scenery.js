@@ -6,6 +6,7 @@
 // scene stays cheap on a phone. Presentation plus simple collider data: story triggers and
 // gameplay state still live outside this module.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { CONFIG } from './config.js';
 import { circleCollider, boxCollider } from './collision.js';
 
 const C = {
@@ -592,14 +593,119 @@ function addDistantStructure(scene, colliders) {
   }
 }
 
+// The First Tower: ancient, monumental and purposeful, with an open lower doorway and a
+// walkable control chamber. Five channels ring a central dais. Nothing here decides the exact
+// activation effect or gives Cipher a voice; the geometry is the documented space only.
+function addFirstTower(scene, colliders) {
+  const cx = CONFIG.towerX;
+  const cz = CONFIG.towerZ;
+  const outer = CONFIG.towerRadius;
+  const inner = CONFIG.towerInteriorRadius;
+  const height = CONFIG.towerHeight;
+  const tower = group(scene, cx, 0, cz);
+  const stone = mat(0x4a4f4a, { flatShading: true });
+  const stoneDark = mat(0x343936, { flatShading: true });
+  const floorMat = mat(0x3f4441, { flatShading: false });
+  const seam = mat(0x8ff4ec, { emissive: 0x2fa7a5, emissiveIntensity: 1.8, flatShading: false });
+  const seamDark = mat(0x2f6f6c, { emissive: 0x1b4a48, emissiveIntensity: .9, flatShading: false });
+
+  const wallRing = (radius, segments, wallHeight, wallY, material, depth = 1.1) => {
+    const arc = Math.PI * 2 / segments;
+    const width = 2 * radius * Math.sin(arc / 2) * 1.07;
+    for (let i = 0; i < segments; i++) {
+      if (i === 0) continue; // open doorway faces south (+Z), toward the wilderness road
+      const angle = i * arc;
+      const px = Math.sin(angle) * radius;
+      const pz = Math.cos(angle) * radius;
+      const panel = group(tower, px, 0, pz, angle);
+      box(panel, width, wallHeight, depth, material, 0, wallY, 0);
+      colliders.push(boxCollider(cx + px, cz + pz, width / 2, depth / 2, angle));
+    }
+  };
+
+  wallRing(outer, 16, height, height / 2, stone, 1.2);
+  wallRing(inner, 12, 16, 8, stoneDark, .9);
+
+  // Buttresses and ring bands give the tower weight without expensive geometry.
+  for (let i = 0; i < 8; i++) {
+    if (i === 0) continue;
+    const angle = i * Math.PI / 4 + Math.PI / 8;
+    const px = Math.sin(angle) * (outer + 1.1);
+    const pz = Math.cos(angle) * (outer + 1.1);
+    const buttress = group(tower, px, 0, pz, angle);
+    box(buttress, 1.5, height * .78, 2.3, stoneDark, 0, height * .39, 0);
+    box(buttress, 1.9, .5, 2.7, stone, 0, height * .78, 0);
+    colliders.push(boxCollider(cx + px, cz + pz, .85, 1.25, angle));
+  }
+  for (const y of [10, 20, 30, height - 3]) {
+    cylinder(tower, outer + .35, outer + .35, .55, 16, stoneDark, 0, y, 0);
+  }
+  cylinder(tower, outer + .8, outer - .3, 1.6, 16, stone, 0, height + .6, 0);
+  cylinder(tower, 1.1, 2.4, 5.6, 8, stoneDark, 0, height + 3.6, 0);
+  cylinder(tower, .22, .5, 3.2, 8, seam, 0, height + 7.6, 0);
+
+  // Floors: an exterior apron, the interior chamber floor and a raised control dais.
+  const apron = mesh(new THREE.CircleGeometry(outer + 1.2, 32), floorMat, cx, .022, cz);
+  apron.rotation.x = -Math.PI / 2;
+  scene.add(apron);
+  const chamberFloor = mesh(new THREE.CircleGeometry(inner + .6, 32), floorMat, cx, .038, cz);
+  chamberFloor.rotation.x = -Math.PI / 2;
+  scene.add(chamberFloor);
+  cylinder(tower, 2.5, 2.8, .42, 24, stoneDark, 0, .21, 0);
+
+  // Five channels: quiet pylons around the dais, each with a dim cyan band.
+  const channelR = 6.1;
+  for (let i = 0; i < 5; i++) {
+    const angle = i * Math.PI * 2 / 5 + Math.PI / 5;
+    const px = Math.sin(angle) * channelR;
+    const pz = Math.cos(angle) * channelR;
+    const channel = group(tower, px, 0, pz, angle);
+    cylinder(channel, .46, .62, 7.1, 6, stoneDark, 0, 3.55, 0);
+    cylinder(channel, .52, .52, .3, 6, seam, 0, 1.35, 0);
+    cylinder(channel, .5, .5, .22, 6, seam, 0, 5.1, 0);
+    cylinder(channel, .58, .46, 1.0, 6, stone, 0, 7.6, 0);
+    for (let rib = 0; rib < 4; rib++) {
+      const ribAngle = rib * Math.PI / 2 + Math.PI / 4;
+      box(channel, .09, 6.3, .09, stone, Math.sin(ribAngle) * .48, 3.4, Math.cos(ribAngle) * .48);
+    }
+    colliders.push(circleCollider(cx + px, cz + pz, .78));
+  }
+
+  // Overhead ring and radial floor grooves point at the dais without implying a finished effect.
+  for (const y of [8.4, 15.5]) {
+    const ring = mesh(new THREE.RingGeometry(inner - 1.3, inner - .55, 32), seamDark, cx, y, cz);
+    ring.rotation.x = -Math.PI / 2;
+    scene.add(ring);
+  }
+  for (let i = 0; i < 5; i++) {
+    const angle = i * Math.PI * 2 / 5 + Math.PI / 5;
+    const groove = box(tower, .12, .05, channelR - 2.4, seamDark, Math.sin(angle) * (channelR - 2.4) / 2, .06, Math.cos(angle) * (channelR - 2.4) / 2, 0, angle, 0);
+    groove.userData.noBatch = true;
+  }
+
+  // The control console sits at the south side of the dais, matching Game.nearTowerConsole().
+  const consoleNode = group(tower, 0, 0, 2.2);
+  cylinder(consoleNode, .52, .62, 1.0, 10, stoneDark, 0, .5, 0);
+  box(consoleNode, 1.05, .16, .62, stone, 0, 1.05, 0);
+  box(consoleNode, .72, .42, .07, seam, 0, 1.32, -.24, -.34, 0, 0);
+  colliders.push(circleCollider(cx, cz + 2.2, .72));
+
+  // A cold local light makes the interior readable without lighting the whole wilderness.
+  const light = new THREE.PointLight(0x7de8df, 2.2, 28, 2);
+  light.position.set(cx, 6.2, cz);
+  scene.add(light);
+
+  return { x: cx, z: cz, radius: outer, interiorRadius: inner, console: { x: cx, z: cz + 2.2 } };
+}
+
 function addWilderness(scene) {
   const random = rng(77421);
   const colliders = [];
   const pathMat = mat(C.path, { flatShading: false });
   const earthMat = mat(C.earth, { flatShading: false });
 
-  // Worn track running from the training gate toward the enemy outpost.
-  for (let z = -12.2; z > -66; z -= 3.2) {
+  // Worn track running from the training gate past the enemy outpost to the First Tower door.
+  for (let z = -12.2; z > -80; z -= 3.2) {
     const width = 2.6 + random() * 1.2;
     const segment = box(scene, width, .018, 3.5, pathMat, Math.sin(z * .07) * 1.15, .014, z, 0, random() * .08 - .04, 0);
     segment.rotation.y += (random() - .5) * .06;
@@ -701,14 +807,39 @@ function addWilderness(scene) {
     circleCollider(2.9, -60.2, .36)
   );
 
+  // The first tower sits beyond the outpost. Its doorway faces south so the road leads straight in.
+  const tower = addFirstTower(scene, colliders);
+  box(scene, 7.6, .02, 5.4, earthMat, 0, .013, -78.2);
+
   return {
     colliders,
     outpost: { x: 0, z: -63 },
+    tower,
     enemySpawns: [
-      { id: 'raider-1', x: -5.5, z: -22.5, weapon: 'staff', name: 'RAIDER · SCAVENGER' },
-      { id: 'raider-2', x: 6.5, z: -33, weapon: 'katana', name: 'RAIDER · BLADE' },
-      { id: 'raider-3', x: -8.5, z: -45, weapon: 'staff', name: 'RAIDER · LOOKOUT' },
-      { id: 'raider-4', x: 5.5, z: -55, weapon: 'katana', name: 'RAIDER · GATEKEEPER' }
+      {
+        id: 'raider-1', x: -5.5, z: -22.5, weapon: 'staff', name: 'RAIDER · SCAVENGER',
+        level: 2, maxHp: 45, loot: 'scout-boots', cash: 25, xp: 60,
+        abilities: ['STAFF SWEEP', 'GUARD', 'PARRY', 'DODGE'],
+        weaknesses: ['Slow to turn after a missed sweep.', 'Guard breaks after repeated blocks.']
+      },
+      {
+        id: 'raider-2', x: 6.5, z: -33, weapon: 'katana', name: 'RAIDER · BLADE',
+        level: 3, maxHp: 48, loot: 'field-katana', cash: 30, xp: 70,
+        abilities: ['QUICK SLASH', 'GUARD', 'PARRY', 'DODGE'],
+        weaknesses: ['Light armour and a short recovery after the slash.']
+      },
+      {
+        id: 'raider-3', x: -8.5, z: -45, weapon: 'staff', name: 'RAIDER · LOOKOUT',
+        level: 3, maxHp: 48, loot: 'filter-coat', cash: 30, xp: 70,
+        abilities: ['STAFF SWEEP', 'GUARD', 'PARRY', 'DODGE'],
+        weaknesses: ['Keeps watch on the road, poor at close guard pressure.']
+      },
+      {
+        id: 'raider-4', x: 5.5, z: -55, weapon: 'katana', name: 'RAIDER · GATEKEEPER',
+        level: 4, maxHp: 54, loot: 'reinforced-staff', cash: 40, xp: 85,
+        abilities: ['HEAVY SLASH', 'GUARD', 'PARRY', 'DODGE'],
+        weaknesses: ['Heavy guard, slower feet.', 'Punish after the second blocked hit.']
+      }
     ],
     update(now) {
       beacon.scale.setScalar(1 + Math.sin(now * .003) * .12);

@@ -14,6 +14,7 @@ export const QUEST_DEFINITIONS = Object.freeze([
     targetZone: 'wilds',
     target: { x: CONFIG.wildOutpostX, z: CONFIG.wildOutpostZ },
     rewardXp: 150,
+    rewardCash: 50,
     progress: progress => progress.outpostReached ? 'Outpost reached' : 'Outpost not reached',
     check: progress => progress.outpostReached === true
   },
@@ -27,9 +28,36 @@ export const QUEST_DEFINITIONS = Object.freeze([
     target: { x: 0, z: -38 },
     targetKind: 'nearest-raider',
     rewardXp: 200,
+    rewardCash: 75,
     progress: progress => `${Math.min(progress.raidersDefeated, progress.raidersTotal)} / ${progress.raidersTotal} raiders down`,
     check: progress => progress.raidersTotal > 0
       && progress.raidersDefeated >= progress.raidersTotal
+  },
+  {
+    id: 'enter-first-tower',
+    title: 'Find the First Tower',
+    summary: 'Beyond the occupied outpost, the road ends at an ancient tower. Walk through its open door and stand inside.',
+    objective: 'Enter the First Tower',
+    hint: 'Follow the north road beyond the outpost',
+    targetZone: 'wilds',
+    target: { x: CONFIG.towerX, z: CONFIG.towerZ },
+    rewardXp: 300,
+    rewardCash: 100,
+    progress: progress => progress.towerEntered ? 'Tower entered' : 'Tower not entered',
+    check: progress => progress.towerEntered === true
+  },
+  {
+    id: 'first-link',
+    title: 'The First Link',
+    summary: 'The tower control chamber has five quiet channels. Stand at the central console and open the local link.',
+    objective: 'Link the five channels',
+    hint: 'Control dais inside the First Tower',
+    targetZone: 'tower',
+    target: { x: CONFIG.towerX, z: CONFIG.towerZ + 2.2 },
+    rewardXp: 450,
+    rewardCash: 150,
+    progress: progress => progress.towerLinked ? 'Five channels linked' : 'Link not opened',
+    check: progress => progress.towerLinked === true
   },
   {
     id: 'prove-lesson',
@@ -41,6 +69,7 @@ export const QUEST_DEFINITIONS = Object.freeze([
     target: { x: 0, z: -2.5 },
     targetKind: 'sensei',
     rewardXp: 100,
+    rewardCash: 25,
     progress: progress => progress.sparWon ? 'Spar won' : 'First to 3 knockdowns',
     check: progress => progress.sparWon === true
   }
@@ -50,8 +79,9 @@ export const QUEST_BY_ID = Object.freeze(Object.fromEntries(
   QUEST_DEFINITIONS.map(quest => [quest.id, quest])
 ));
 
-// Older saves called this objective "first tower". Keep them loadable after it became an
-// enemy outpost; no canon tower is being added to the game.
+// Older saves called this objective "first tower". Keep them loadable after the objective became
+// the enemy outpost; the separate tower quests below were added later, so the legacy ID must still
+// migrate rather than pointing at a different objective.
 const LEGACY_QUEST_IDS = Object.freeze({ 'first-tower': 'scout-outpost' });
 
 export function questById(id) {
@@ -128,6 +158,7 @@ export class QuestLog {
       objective: quest.objective,
       hint: quest.hint,
       rewardXp: quest.rewardXp,
+      rewardCash: quest.rewardCash || 0,
       status: this.completed.has(quest.id)
         ? 'completed'
         : this.active === quest.id ? 'active' : 'available',

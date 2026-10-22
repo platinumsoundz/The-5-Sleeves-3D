@@ -47,28 +47,40 @@ export const CONFIG = {
   roundPause: 1.2,
   arenaLimit: 11.2,
   // World slice: a training yard opening through the north gate into a wide wilderness
-  // corridor. The enemy outpost closes the current test area; it is not a story tower.
+  // corridor. The occupied outpost is a road obstacle, not the tower. Beyond it, the first
+  // tower opens into a walkable control chamber with five channels.
   trainingHalfX: 11.2,
   trainingMaxZ: 8.2,
   gateHalf: 2.45,
   gateZ: -13.2,
-  wildHalfX: 31,
-  wildMinZ: -67,
+  wildHalfX: 36,
+  wildMinZ: -112,
   wildMaxZ: -13.2,
   wildOutpostX: 0,
   wildOutpostZ: -63,
   wildOutpostReach: 6.4,
+  towerX: 0,
+  towerZ: -91,
+  towerRadius: 15,
+  towerInteriorRadius: 10.2,
+  towerDoorWidth: 5.4,
+  towerHeight: 42,
   // Simple body radius used to keep actors out of solid scenery.
   actorRadius: .42,
-  // Wilderness raiders use the same nonlethal knockdown loop with separate stats.
+  // Wilderness raiders use the same nonlethal knockdown loop with separate stats. Their
+  // attacks, blocks, parries and dodges mirror the player's verbs but stay individually weaker.
   wildEnemyHp: 45,
   wildDamage: 7,
   wildSpeed: 1.05,
-  wildAggro: 20,
-  // Radar follow range in world metres. Wider in the wilderness so the route and raiders
-  // are readable instead of every target sitting on the rim; the player stays centred.
+  wildAggro: 22,
+  wildReach: 1.85,
+  wildWindup: .5,
+  wildCooldown: 1.05,
+  // Radar follow range in world metres. The map is north-up and the player stays centred;
+  // only the heading marker rotates. The tower view is shorter because it is an interior.
   radarRange: 24,
   radarWildRange: 52,
+  radarTowerRange: 18,
   // Camera, look and touch input. Tuning placeholders until the first phone pass.
   lookSensitivity: .006,
   pitchLimit: 1.05,

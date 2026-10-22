@@ -22,15 +22,22 @@ ChatGPT-6 Luna, exact model ID unconfirmed. See chapter 4 before editing.
 
 ## Current milestone
 Whitebox village training area plus a wilderness test route: skippable tutorial, nonlethal sparring
-with Sensei scored first to 3 knockdowns, and four separate raiders guarding the path to a first-
-tower silhouette. Staff → katana → unarmed → test sleeve cycle on D-pad left/right; unarmed is a
-punch → kick → grab combo. Guard, block, dodge and parry share one input; Sensei telegraphs and
-punishes whiffs. Touch uses a mobile-shooter layout (analog stick, right-side look, hold AIM for
-zoom/lock, left FIRE and a SWAP button); PC uses the standard shooter layout. The settlement and
-character visual pass was owner-tested; the weapons/wilderness/raider slice is headless-tested and
-still needs a browser/device pass. The `CIPHER SLEEVE · TEST` entry is temporary developer content,
-not story acquisition or canon.
+with Sensei scored first to 3 knockdowns, and four separate raiders guarding the path past an enemy
+outpost to a walkable First Tower. Staff → katana → unarmed → test sleeve cycle on D-pad left/right;
+unarmed is a punch → kick → grab combo. Guard, block, dodge and parry share one input; Sensei
+telegraphs and punishes whiffs. Raiders now use vision cones, `?`/`!` alerts, auto-approach and
+player-like block/parry/dodge reactions. Levels/XP/cash, a 24-slot inventory, equipment bonuses and a
+passive skill tree are real local-save progression; the test sleeve provides a limited aim scan.
+Touch uses a mobile-shooter layout (analog stick, right-side look, hold AIM for zoom/lock, left FIRE
+and a SWAP button); PC uses the standard shooter layout. The settlement and character visual pass was
+owner-tested; the progression/tower/scan/enemy-vision/north-up-minimap pass is headless-tested and
+still needs a browser/device pass. `src/multiplayer.js` is a future-mode client-state scaffold only;
+it is not wired into story mode. The `CIPHER SLEEVE · TEST` entry is temporary developer content, not
+story acquisition or canon. The tower link is a silent local prototype; its exact activation effect
+and first Cipher speech are unresolved.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness milestone note; test-only sleeve)
+
+> ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (progression, First Tower, scan, enemy defence, north-up minimap, multiplayer scaffold milestone note)

@@ -79,8 +79,12 @@ test('PWA manifest exposes installable icons and the worker precaches the shell'
   assert.match(worker, /src\/device\.js/);
   assert.match(worker, /src\/collision\.js/);
   assert.match(worker, /src\/story\.js/);
+  assert.match(worker, /src\/progression\.js/);
+  assert.match(worker, /src\/enemy\.js/);
+  assert.match(worker, /src\/scan\.js/);
+  assert.match(worker, /src\/multiplayer\.js/);
   assert.match(worker, /src\/main\.js/);
-  assert.match(worker, /five-sleeves-shell-v3/);
+  assert.match(worker, /five-sleeves-shell-v4/);
   assert.match(worker, /three@0\.160\.0/);
 });
 
@@ -240,10 +244,10 @@ test('save data sanitizes, round-trips and deletes', () => {
     permissions: [' gear ', 'gear', 7, ''],
     quests: { active: ' scout-outpost ', completed: ['clear-approach', 'clear-approach', 7, ''] }
   });
-  assert.equal(saved.version, 1);
+  assert.equal(saved.version, 2);
   assert.equal(saved.tutorialDone, true);
-  assert.equal(saved.xp, 12);
-  assert.equal(saved.cash, 0);
+  assert.deepEqual(saved.progression, { level: 1, xp: 12, cash: 0 });
+  assert.equal(saved.skills.points, 1);
   assert.deepEqual(saved.permissions, ['gear']);
   assert.deepEqual(saved.quests, { active: 'scout-outpost', completed: ['clear-approach'] });
   assert.ok(saved.savedAt > 0);

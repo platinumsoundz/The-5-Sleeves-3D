@@ -1,7 +1,8 @@
 // ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (story introduction pass)
-// Data-driven opening for offline story mode. Pages are intentionally broad mood/setting text:
-// no new canon, named geography, Cipher powers or story tower is established here. Future
-// dialogue/story events can add pages or reuse StoryDeck without changing the overlay code.
+// ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (First Tower discovery pages)
+// Data-driven offline story pages. Opening pages stay broad mood/setting text. The tower pages
+// use the documented ancient/monumental/control-chamber description without deciding the exact
+// activation effect or putting words in Cipher's mouth. Future events can reuse StoryDeck.
 export const STORY_PAGES = Object.freeze([
   Object.freeze({
     id: 'road-beyond',
@@ -41,6 +42,33 @@ export const STORY_PAGES = Object.freeze([
     body: Object.freeze([
       'Spar with Sensei. Walk the north road. Learn what the outpost is guarding — and what it is not.',
       'The story is yours to carry from here.'
+    ])
+  })
+]);
+
+export const TOWER_STORY_PAGES = Object.freeze([
+  Object.freeze({
+    id: 'tower-arrival',
+    title: 'THE FIRST TOWER',
+    body: Object.freeze([
+      'The road ends at stone that was old before the settlements learned to keep records. The tower does not look abandoned. It looks patient.',
+      'Its lower wall opens without a door. Inside, the air is still, and the dark is arranged around a purpose older than the road outside.'
+    ])
+  }),
+  Object.freeze({
+    id: 'tower-channels',
+    title: 'FIVE CHANNELS',
+    body: Object.freeze([
+      'Five channels rise around the control dais. None of them is bright. They wait in a ring, linked to something beneath the floor and beyond the reach of the chamber.',
+      'This place was built to keep a local system alive. The shape of that work is clear. The full consequence of waking it is not.'
+    ])
+  }),
+  Object.freeze({
+    id: 'tower-link',
+    title: 'A LOCAL LINK',
+    body: Object.freeze([
+      'The console answers your presence with a low, even note. The five channels take it up, one after another, until the chamber is holding a single chord.',
+      'Whatever the tower is connected to, the connection is local and unfinished. Cipher has not spoken. The first question is still yours to ask.'
     ])
   })
 ]);

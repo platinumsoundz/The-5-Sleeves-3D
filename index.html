@@ -14,8 +14,9 @@
       <div class="vital"><b>STAMINA</b><div class="bar stamina"><i id="player-stamina"></i></div></div>
       <div class="vital" id="sleeve-vital" hidden><b>SLEEVE</b><div class="bar sleeve"><i id="sleeve-charge"></i></div></div>
     </section>
-    <div id="radar" role="button" tabindex="0" aria-label="Minimap — you are centred; open map">
+    <div id="radar" role="button" tabindex="0" aria-label="North-up minimap — you are centred; open map">
       <div class="radar-ring"></div><div class="radar-cross"></div>
+      <b class="radar-north">N</b>
       <i id="radar-player" class="radar-dot player"></i>
       <i id="radar-sensei" class="radar-dot sensei"></i>
       <i id="radar-quest" class="radar-quest" hidden aria-label="Tracked quest"></i>
@@ -35,7 +36,7 @@
     </div>
     <div id="score">○○○ — ○○○</div>
     <div id="weapon">STAFF</div>
-    <div class="status"><div><b id="target-name">SENSEI</b><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
+    <div class="status"><div><b id="target-name">SENSEI</b> <span id="target-alert" class="target-alert" hidden></span><div class="bar"><i id="sensei-health"></i></div></div><div id="phase">TUTORIAL</div></div>
     <div id="device" role="status">INPUT: DETECTING</div>
     <div id="fps" aria-hidden="true">— FPS</div>
     <div id="warning" role="status" aria-label="Sensei is winding up" hidden>!</div>
@@ -60,6 +61,22 @@
     <button id="fire" data-action="attack" hidden>FIRE</button>
   </div>
   <div id="reticle" aria-hidden="true" hidden></div>
+
+  <div id="scan" class="scan" hidden aria-live="polite" aria-label="Cipher tactical scan">
+    <div class="scan-lines" aria-hidden="true"></div>
+    <i class="scan-corner tl" aria-hidden="true"></i><i class="scan-corner tr" aria-hidden="true"></i>
+    <i class="scan-corner bl" aria-hidden="true"></i><i class="scan-corner br" aria-hidden="true"></i>
+    <div class="scan-card">
+      <header><span>CIPHER // TACTICAL SCAN</span><em id="scan-confidence">LIVE</em></header>
+      <div class="scan-ident"><b id="scan-name">UNKNOWN</b><span id="scan-level">LV 1</span><strong id="scan-state">CALM</strong></div>
+      <div class="scan-health"><div class="bar scan-hp"><i id="scan-health-fill"></i></div><span id="scan-hp">0 / 0 HP</span></div>
+      <dl>
+        <div><dt>KNOWN ABILITIES</dt><dd id="scan-abilities"></dd></div>
+        <div><dt>OBSERVED WEAKNESSES</dt><dd id="scan-weaknesses"></dd></div>
+      </dl>
+      <p id="scan-note"></p>
+    </div>
+  </div>
 
   <div id="title" role="dialog" aria-label="Title screen" hidden>
     <div class="title-card">
@@ -112,6 +129,7 @@
       <nav id="menu-tabs" aria-label="Menu pages">
         <button type="button" data-tab="status" class="active">CHARACTER</button>
         <button type="button" data-tab="gear">INVENTORY</button>
+        <button type="button" data-tab="skills">SKILLS</button>
         <button type="button" data-tab="quests">QUESTS</button>
         <button type="button" data-tab="map">MAP</button>
         <button type="button" data-tab="controls">SETTINGS</button>
@@ -120,25 +138,39 @@
       <div class="menu-body">
         <section data-page="status">
           <h3>CHARACTER</h3>
-          <p class="muted">This is the pre-discovery training ground. The story Cipher Sleeve has not been acquired; the separate TEST sleeve is developer-only and grants no powers.</p>
+          <p class="muted">Progression is saved locally. Gear and passive skills add real attack, defence, speed and vitality; the Cipher Sleeve remains a temporary test loadout with a limited tactical scan.</p>
+          <div class="level-line"><b id="stat-level">LV 1</b><span id="stat-xp-next">0 / 80 XP</span></div>
+          <div class="bar xp"><i id="xp-fill"></i></div>
           <dl class="stat-grid">
-            <div><dt>XP (dev)</dt><dd id="stat-xp">0</dd></div>
-            <div><dt>Cash (dev)</dt><dd id="stat-cash">0</dd></div>
+            <div><dt>XP this level</dt><dd id="stat-xp">0</dd></div>
+            <div><dt>Cash</dt><dd id="stat-cash">0</dd></div>
+            <div><dt>Skill points</dt><dd id="stat-skill-points">1</dd></div>
+            <div><dt>Attack</dt><dd id="stat-attack">+0</dd></div>
+            <div><dt>Defence</dt><dd id="stat-defense">+0</dd></div>
+            <div><dt>Speed</dt><dd id="stat-speed">0%</dd></div>
             <div><dt>Tutorial</dt><dd id="stat-tutorial">In progress</dd></div>
             <div><dt>Knockdowns</dt><dd id="stat-score">0 – 0</dd></div>
+            <div class="wide"><dt>First Tower</dt><dd id="stat-tower">Not reached</dd></div>
             <div class="wide"><dt>Permissions</dt><dd id="stat-perms">None</dd></div>
           </dl>
           <h3>SPAR RECORD</h3>
-          <p class="muted">Sensei is the sparring opponent. Wilderness raiders are separate test encounters; rounds end on knockdowns, never on injury.</p>
+          <p class="muted">Sensei is the sparring opponent. Wilderness raiders are separate nonlethal encounters; rounds end on knockdowns, never on injury.</p>
         </section>
 
         <section data-page="gear" hidden>
           <h3>EQUIPPED</h3>
-          <div class="gear-slot"><span>LOADOUT</span><b>Staff · Katana · Unarmed</b><em>D-pad left / right cycles weapons and fists</em></div>
-          <div class="gear-slot"><span>TEST SLOT</span><b>Cipher Sleeve · TEST</b><em>Temporary developer test asset — not story acquisition, not canon gear</em></div>
-          <div class="gear-slot"><span>UNARMED</span><b>Punch → kick → grab</b><em>Grab staggers; knockdowns remain nonlethal</em></div>
-          <h3>INVENTORY</h3>
-          <p class="muted">Prototype arsenal only. The enemy outpost and wilderness raiders are test content; item pickups and canon upgrades are not implemented.</p>
+          <div id="equipped-list" class="equipped-list" role="list"></div>
+          <div id="inventory-stats" class="inventory-stats"></div>
+          <h3>INVENTORY <span id="inventory-count" class="muted"></span></h3>
+          <p class="muted">Weapon bonuses apply while that weapon kind is active. Armour and gear always apply. Equipment is prototype content, not canon lore.</p>
+          <div id="inventory-list" class="inventory-list" role="list"></div>
+        </section>
+
+        <section data-page="skills" hidden>
+          <h3>SKILL TREE</h3>
+          <p class="muted">Earn one skill point per level. Nodes are passive training bonuses; the branches are movement, defence, conditioning and striking. Unlocks are saved immediately.</p>
+          <p class="skill-points-line">AVAILABLE POINTS <b id="skill-points">1</b></p>
+          <div id="skill-list" class="skill-list" role="list"></div>
         </section>
 
         <section data-page="quests" hidden>
@@ -149,8 +181,8 @@
         </section>
 
         <section data-page="map" hidden>
-          <h3>TRAINING GROUND &amp; WILDERNESS</h3>
-          <div id="tabmap" class="map-square" aria-label="Training ground and wilderness map">
+          <h3>TRAINING GROUND, WILDERNESS &amp; FIRST TOWER</h3>
+          <div id="tabmap" class="map-square" aria-label="Training ground, wilderness and First Tower map">
             <div class="map-regions" aria-hidden="true"></div>
             <div class="map-pois" aria-hidden="true"></div>
             <div class="map-ring"></div>
@@ -158,7 +190,7 @@
             <i class="mapdot quest" hidden></i>
             <i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i><i class="mapdot raider" hidden></i>
           </div>
-          <p class="muted">North-up, world-scaled and ready for more regions. Gold is you, red is Sensei, orange raiders patrol the wilderness, cyan is the tracked quest. Select / Tab opens the full map.</p>
+          <p class="muted">North-up and world-scaled. Gold is you, red is Sensei, orange raiders patrol the wilderness, cyan is the tracked quest. The First Tower sits beyond the occupied outpost. Select / Tab opens the full map.</p>
           <button id="open-map" type="button">OPEN FULL MAP</button>
         </section>
 

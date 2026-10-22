@@ -20,6 +20,7 @@ import { clamp, deadzone, joystick } from '../src/controls.js';
 import { BINDING_ACTIONS, DEFAULT_GAMEPAD, DEFAULT_KEYBOARD } from '../src/bindings.js';
 import { DEFAULTS, loadSettings, sanitize, saveSettings, SETTINGS_KEY } from '../src/settings.js';
 import { loadSave, writeSave } from '../src/save.js';
+import { mitigatedDamage } from '../src/progression.js';
 
 const DT = 1 / 60;
 const frames = seconds => Math.ceil(seconds / DT) + 2;
@@ -339,7 +340,7 @@ test('Sensei stays passive during the tutorial', () => {
   world.player.position.set(0, 0, -1);
   const senseiZ = world.sensei.position.z;
   step(game, 300);
-  assert.equal(game.playerHp, 100);
+  assert.equal(game.playerHp, game.player.maxHp);
   assert.equal(game.enemyHp, 100);
   assert.equal(world.sensei.position.z, senseiZ);
 });
@@ -392,7 +393,7 @@ test('staff swings do no damage during the tutorial, then damage in range', () =
   step(game, frames(CONFIG.attackCooldown));
   world.player.position.set(0, 0, -1.5);
   input.press('attack'); step(game);
-  assert.equal(game.enemyHp, 100 - CONFIG.damage);
+  assert.equal(game.enemyHp, 100 - (CONFIG.damage + game.playerStats.attack));
 });
 
 test('out-of-range swings miss', () => {
@@ -418,7 +419,7 @@ test('guard with no direction parries when timed just before the strike', () => 
 
   step(game, frames(CONFIG.senseiWindup));
   assert.equal(parried, true);
-  assert.equal(game.playerHp, 100, 'a parry negates the strike');
+  assert.equal(game.playerHp, game.player.maxHp, 'a parry negates the strike');
   assert.equal(game.ai.state, 'stagger');
 }));
 
@@ -433,7 +434,10 @@ test('holding guard past the parry window blocks for reduced damage', () => with
   assert.equal(game.playerCombat.parryTimer, 0, 'the parry window has closed');
 
   step(game, frames(CONFIG.senseiWindup));
-  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage * CONFIG.blockDamageScale);
+  assert.equal(
+    game.playerHp,
+    game.player.maxHp - mitigatedDamage(CONFIG.senseiDamage * CONFIG.blockDamageScale, game.playerStats.defense)
+  );
 }));
 
 test('repeated blocks break the guard and briefly stop blocking', () => withAccuracy(1, () => {
@@ -474,7 +478,10 @@ test('crouching is posture, not defense', () => withAccuracy(1, () => {
   world.player.position.set(0, 0, -1);
   input.held.add('crouch');
   step(game, frames(CONFIG.senseiWindup));
-  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage);
+  assert.equal(
+    game.playerHp,
+    game.player.maxHp - mitigatedDamage(CONFIG.senseiDamage, game.playerStats.defense)
+  );
 }));
 
 test('a whiffed swing invites a shortened punish wind-up', () => withAccuracy(0, () => {
@@ -549,7 +556,7 @@ test('round reset returns both fighters to their marks without clearing the scor
   assert.ok(snapshot, 'the round should restart after recovery and the pause');
   assert.equal(snapshot.playerZ, 2.5);
   assert.equal(snapshot.senseiZ, -2.5);
-  assert.equal(snapshot.playerHp, 100);
+  assert.equal(snapshot.playerHp, game.player.maxHp);
   assert.equal(snapshot.senseiHp, 100);
   assert.equal(game.match.player, 1);
 }));
@@ -558,7 +565,7 @@ test('downed player stays down until confirming, then returns at full health', (
   const { game, world, input } = makeGame();
   game.finishTutorial();
   world.player.position.set(0, 0, -1);
-  game.playerHp = CONFIG.senseiDamage;
+  game.playerHp = 1;
 
   step(game, frames(CONFIG.senseiWindup));
   assert.equal(game.playerHp, 0);
@@ -571,7 +578,7 @@ test('downed player stays down until confirming, then returns at full health', (
   CONFIG.senseiAccuracy = 0;
   input.press('confirm'); step(game);
   assert.equal(game.playerDown, 0);
-  assert.equal(game.playerHp, 100);
+  assert.equal(game.playerHp, game.player.maxHp);
 }));
 
 test('a third knockdown ends the spar and freezes movement', () => withAccuracy(0, () => {
@@ -601,7 +608,7 @@ test('Sensei can take the spar too', () => withAccuracy(1, () => {
   game.finishTutorial();
   game.match.sensei = 2;
   world.player.position.set(0, 0, -1);
-  game.playerHp = CONFIG.senseiDamage;
+  game.playerHp = 1;
   step(game, frames(CONFIG.senseiWindup));
   assert.equal(game.phase, 'result');
   assert.equal(ui.result.textContent, 'SENSEI WINS THE SPAR');
@@ -786,10 +793,12 @@ test('quests complete through existing progress hooks and pay their reward once'
   step(outpost.game);
   assert.equal(outpost.game.activeQuest, null);
   assert.equal(outpost.game.questEntries.find(quest => quest.id === 'scout-outpost').status, 'completed');
-  assert.equal(outpost.game.progress.xp, 150);
+  assert.equal(outpost.game.progression.level, 2);
+  assert.equal(outpost.game.progression.xp, 70);
   const version = outpost.game.questVersion;
+  const before = outpost.game.progression.snapshot();
   step(outpost.game);
-  assert.equal(outpost.game.progress.xp, 150, 'a completed quest cannot pay twice');
+  assert.deepEqual(outpost.game.progression.snapshot(), before, 'a completed quest cannot pay twice');
   assert.equal(outpost.game.questVersion, version);
 
   const world = makeWorld();
@@ -804,7 +813,8 @@ test('quests complete through existing progress hooks and pay their reward once'
   raiders.game.encounters.forEach(enemy => { enemy.defeated = true; });
   step(raiders.game);
   assert.equal(raiders.game.activeQuest, null);
-  assert.equal(raiders.game.progress.xp, 200);
+  assert.equal(raiders.game.progression.level, 3);
+  assert.equal(raiders.game.progression.xp, 22);
   assert.match(raiders.game.message, /Quest complete/i);
 
   const spar = makeGame();
@@ -813,7 +823,46 @@ test('quests complete through existing progress hooks and pay their reward once'
   spar.game.match.winner = 'player';
   step(spar.game);
   assert.equal(spar.game.activeQuest, null);
-  assert.equal(spar.game.progress.xp, 100);
+  assert.equal(spar.game.progression.level, 2);
+  assert.equal(spar.game.progression.xp, 20);
+});
+
+test('walking into the First Tower enters it and the console links once', () => {
+  const world = makeWorld();
+  world.enemies = [];
+  const { game } = makeGame(world);
+  game.finishTutorial();
+  game.zone = 'wilds';
+  world.player.position.set(0, 0, CONFIG.towerZ);
+  game.updateZone();
+  assert.equal(game.zone, 'tower');
+  assert.equal(game.towerEntered, true);
+
+  world.player.position.set(0, 0, CONFIG.towerZ + 2.2);
+  assert.equal(game.nearTowerConsole(), true);
+  const before = game.progression.snapshot();
+  assert.equal(game.useTowerConsole(), true);
+  assert.equal(game.towerLinked, true);
+  assert.equal(game.inventory.has('guardian-plate'), true, 'the link recovers the guardian plate');
+  assert.notDeepEqual(game.progression.snapshot(), before);
+  const linked = game.progression.snapshot();
+  assert.equal(game.useTowerConsole(), true, 'a linked console can still be inspected');
+  assert.deepEqual(game.progression.snapshot(), linked, 'the link reward is paid only once');
+});
+
+test('tower attacks route to wilderness raiders instead of Sensei', () => {
+  const world = makeWorld();
+  world.enemies = [enemyFixture('raider-1', 0, CONFIG.towerZ - .2)];
+  const { game, input } = makeGame(world);
+  game.random = () => 1;
+  game.finishTutorial();
+  game.zone = 'tower';
+  world.player.position.set(0, 0, CONFIG.towerZ + .8);
+  const before = game.encounters[0].state.hp;
+  input.press('attack');
+  step(game);
+  assert.ok(game.encounters[0].state.hp < before, 'the tower strike reaches the raider');
+  assert.equal(game.sensei.hp, 100, 'Sensei is not touched outside the yard');
 });
 
 test('a wilderness raider can strike the player without throwing and deals damage', () => withAccuracy(1, () => {
@@ -821,6 +870,7 @@ test('a wilderness raider can strike the player without throwing and deals damag
   world.enemies = [enemyFixture('raider-1', 0, -20.8)];
   world.setZone = function setZone(value) { this.zone = value; };
   const { game } = makeGame(world);
+  game.random = () => 0;
   game.finishTutorial();
   game.zone = 'wilds';
   world.player.position.set(0, 0, -20);
@@ -828,9 +878,10 @@ test('a wilderness raider can strike the player without throwing and deals damag
   // Regression: the strike path once called hit() on the Three.js player mesh instead of the
   // player's FighterState, crashing as soon as a raider reached the player.
   assert.doesNotThrow(() => {
-    for (let i = 0; i < frames(3) && game.playerHp === 100; i++) step(game);
+    for (let i = 0; i < frames(3) && game.playerHp === game.player.maxHp; i++) step(game);
   });
-  assert.equal(game.playerHp, 100 - CONFIG.wildDamage);
+  const expected = game.player.maxHp - mitigatedDamage(CONFIG.wildDamage, game.playerStats.defense);
+  assert.ok(Math.abs(game.playerHp - expected) < 1e-9, `${game.playerHp} vs ${expected}`);
 }));
 
 test('wilderness attacks target and knock down raiders without scoring the spar', () => {
@@ -994,7 +1045,7 @@ test('menu freezes the spar and resumes where it stopped', () => withAccuracy(1,
   assert.equal(ui.pause.hidden, true);
 
   step(game, frames(4));
-  assert.equal(game.playerHp, 100, 'no strikes resolve while paused');
+  assert.equal(game.playerHp, game.player.maxHp, 'no strikes resolve while paused');
   assert.equal(game.ai.state, 'idle');
 
   input.press('menu');
@@ -1003,7 +1054,10 @@ test('menu freezes the spar and resumes where it stopped', () => withAccuracy(1,
   assert.equal(game.screen, 'playing');
   assert.equal(ui.settings.hidden, true);
   step(game, frames(CONFIG.senseiWindup));
-  assert.equal(game.playerHp, 100 - CONFIG.senseiDamage);
+  assert.equal(
+    game.playerHp,
+    game.player.maxHp - mitigatedDamage(CONFIG.senseiDamage, game.playerStats.defense)
+  );
 }));
 
 function memoryStorage() {
@@ -1077,8 +1131,8 @@ test('save files restore tutorial progress and developer grants', () => {
   const saved = first.game.saveGame(store);
   assert.equal(first.game.hasSave, true);
   assert.equal(saved.tutorialDone, true);
-  assert.equal(saved.xp, 500);
-  assert.equal(saved.cash, 1000);
+  assert.deepEqual(saved.progression, { level: 5, xp: 58, cash: 1000 });
+  assert.equal(saved.skills.points, 5);
   assert.deepEqual(saved.permissions, ['sleeve-prototype']);
   assert.deepEqual(saved.quests, { active: 'clear-approach', completed: [] });
 
@@ -1090,8 +1144,7 @@ test('save files restore tutorial progress and developer grants', () => {
   assert.equal(second.game.resume(restored), true);
   assert.equal(second.game.screen, 'playing');
   assert.equal(second.game.phase, 'spar');
-  assert.equal(second.game.progress.xp, 500);
-  assert.equal(second.game.progress.cash, 1000);
+  assert.deepEqual(second.game.progression.snapshot(), { level: 5, xp: 58, cash: 1000 });
   assert.equal(second.game.activeQuest.id, 'clear-approach', 'the tracked quest restores from the save');
 
   second.game.clearSave(store);
