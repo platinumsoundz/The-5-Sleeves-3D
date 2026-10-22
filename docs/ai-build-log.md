@@ -383,7 +383,7 @@ device render pass was run for this slice, so camera composition, raider silhoue
 gate readability and frame rate remain unverified. Touch-button layout tuning remains deferred.
 Character likeness still requires approved reference sheets.
 
-**Preview:** the commit-pinned raw.githack URL is recorded in `README.md` after this push so it
-points at the exact weapons/wilderness build rather than a cached `/main/` module.
+**Preview:** https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/1aea0d9/index.html — the
+commit-pinned path avoids raw.githack's `/main/` module cache.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (weapons/wilderness slice)

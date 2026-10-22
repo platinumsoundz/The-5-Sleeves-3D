@@ -14,7 +14,7 @@ The tutorial guides movement, attack, aim/lock and guard/dodge/parry and can be 
 
 The Cipher Sleeve HUD meter stays hidden unless the test sleeve is equipped. Hips, knees and the free arm are articulated for walking, crouching and attack counterbalance; boots stay planted and the staff/katana is mounted in the right hand. Character likeness still requires approved reference sheets. The 2026-10-22 settlement/character visual pass was device-tested by the owner without reported frame drops; **this weapon/wilderness/raider pass has not been browser- or device-rendered here**, so its camera framing, raider silhouettes, sleeve test mesh and performance still need an owner pass. Run `npm test` for the 58 headless checks; the in-game FPS readout also reports draw calls and triangles for device checks. See `docs/architecture.md`, `docs/memory/02-gameplay.md`, provenance in `docs/memory/04-ai-collaboration.md`, and `docs/ai-build-log.md`.
 
-Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules. The link is updated after each push; the previous build was `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/c5e3236/index.html`.
+Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/1aea0d9/index.html`.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-21
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (settlement/character visual pass; sleeve meter hidden until acquisition)
