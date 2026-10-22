@@ -19,7 +19,8 @@ Keep the source square PNG at 1024×1024 or larger at:
 `icons/source/app-icon.png`
 
 Regenerate all five runtime files from that source rather than replacing only one of them. Keep the
-same filenames so `manifest.webmanifest`, `index.html` and `sw.js` keep working. The current source
-is 1254×1254 RGB and the runtime exports were generated on 2026-10-22.
+same filenames so `manifest.webmanifest`, `index.html` and `sw.js` keep working. Bump the `CACHE`
+version in `sw.js` whenever the artwork changes so installed clients pick up the new icon set. The
+current source is 1254×1254 RGB and the runtime exports were generated on 2026-10-22.
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)

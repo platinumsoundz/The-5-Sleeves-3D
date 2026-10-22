@@ -22,7 +22,7 @@ The Cipher Sleeve HUD meter stays hidden unless the test sleeve is equipped. Hip
 
 **Install:** Android/Chromium may show an INSTALL APP button on the title screen; otherwise use the browser menu → Install app. On iPhone/iPad use Share → Add to Home Screen. Installation needs HTTPS (or localhost) and the site must be served from a real origin rather than opening the HTML directly.
 
-**Icon artwork:** the owner-supplied source at `icons/source/app-icon.png` has been exported to the runtime files `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. You do not need to replace those five by hand. If the source artwork changes, replace only `icons/source/app-icon.png` and regenerate all five exports; keeping the filenames stable preserves the manifest, iOS meta tag and service-worker cache. Details are in `icons/README.md`.
+**Icon artwork:** the owner-supplied source at `icons/source/app-icon.png` has been exported to the runtime files `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/apple-touch-icon.png` and `icons/favicon-32.png`. You do not need to replace those five by hand. If the source artwork changes, replace only `icons/source/app-icon.png`, regenerate all five exports and bump the `CACHE` version in `sw.js`; keeping the filenames stable preserves the manifest and iOS meta tag. Details are in `icons/README.md`.
 
 Current preview is commit-pinned because raw.githack's `/main/` path can serve cached modules: `https://raw.githack.com/platinumsoundz/The-5-Sleeves-3D/95dec2b/index.html`.
 
