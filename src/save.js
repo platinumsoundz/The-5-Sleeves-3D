@@ -10,6 +10,8 @@ import { SKILL_TREE } from './skills.js';
 import { INVENTORY_CAPACITY, starterInventorySnapshot } from './inventory.js';
 
 export const SAVE_KEY = 'five-sleeves.save.v1';
+// Keep one last-known-good snapshot so a truncated browser write can be recovered.
+export const SAVE_BACKUP_KEY = 'five-sleeves.save.v1.backup';
 export const SAVE_VERSION = 2;
 
 const wholeNumber = value => {
@@ -111,19 +113,33 @@ export function sanitizeSave(raw = {}) {
   };
 }
 
-export function loadSave(storage) {
+function readSlot(storage, key) {
   try {
-    const raw = storage?.getItem(SAVE_KEY);
-    if (!raw) return null;
-    return sanitizeSave(JSON.parse(raw));
+    const raw = storage?.getItem(key);
+    return raw ? sanitizeSave(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
 }
 
+export function loadSave(storage) {
+  // Prefer the newest save, but recover the last good snapshot if it is absent or corrupt.
+  return readSlot(storage, SAVE_KEY) || readSlot(storage, SAVE_BACKUP_KEY);
+}
+
 export function writeSave(storage, save) {
   const safe = sanitizeSave({ ...save, savedAt: Date.now() });
   try {
+    const current = storage?.getItem(SAVE_KEY);
+    if (current) {
+      // Never replace a usable backup with malformed data from a broken primary slot.
+      try {
+        const previous = sanitizeSave(JSON.parse(current));
+        storage?.setItem(SAVE_BACKUP_KEY, JSON.stringify(previous));
+      } catch {
+        // Leave the existing backup untouched.
+      }
+    }
     storage?.setItem(SAVE_KEY, JSON.stringify(safe));
   } catch {
     // In-memory resume still works for this session if storage is blocked.
@@ -134,6 +150,7 @@ export function writeSave(storage, save) {
 export function deleteSave(storage) {
   try {
     storage?.removeItem(SAVE_KEY);
+    storage?.removeItem(SAVE_BACKUP_KEY);
   } catch {
     // Ignore blocked storage.
   }

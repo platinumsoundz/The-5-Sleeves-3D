@@ -599,3 +599,18 @@ remain owner-approval/backend items.
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (progression, inventory, skills, enemy vision, First Tower, scan, north-up minimap, multiplayer scaffolding)
+
+
+## 2026-10-26 — GPT-6 (save recovery pass)
+
+**Scope:** protect local progression from a corrupt or interrupted browser-storage write without changing the save schema or gameplay rules.
+
+- Added `SAVE_BACKUP_KEY` and a last-known-good save snapshot.
+- Loading prefers the current save, then falls back to the backup if the current slot is missing or malformed.
+- Saving rotates a parseable primary save into the backup before replacing it. A malformed primary never overwrites a good backup.
+- Deleting a save clears both slots so Resume cannot silently restore data the player chose to delete.
+- Added `tests/save-recovery.test.mjs` for corrupt-primary recovery, backup rotation, malformed-primary safety, and deletion of both slots.
+
+**Verification:** not run, following the owner's deferred-verification workflow. No browser/device test or deployment was performed.
+
+**Known limit:** browser storage can be cleared or unavailable; this is recovery from a damaged local save, not cloud backup or cross-device sync.
