@@ -241,7 +241,7 @@ to finish the visual, character and scenery pass.
 
 **Visuals and characters**
 
-- Added `src/scenery.js`: a repaired settlement training yard with patched perimeter fence and gate,
+- Added `src/scenery.js`: a repaired settlement settlement with patched perimeter fence and gate,
   workshop, house with warm windows and chimney smoke, market awning, rain barrel/hand pump, solar
   array and battery, air-scrubber fan, laundry, crates/barrels/sacks, staff rack, trees, ring markers,
   a path, distant water tower/relay mast, procedural hills, canvas ground/sky textures, dust and a
