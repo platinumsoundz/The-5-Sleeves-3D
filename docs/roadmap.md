@@ -1,10 +1,10 @@
-# Roadmap — The 5 Sleeves browser game
+# Roadmap — The 5 Sleeves 3D
 
 This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. It separates the current playable prototype from proposed visual/content work. A story reference is not an approved game feature or proof it is implemented. Read `docs/memory/README.md`, then relevant memory chapters before changing code. Inspect the current implementation and tests first; record material decisions and AI provenance using the existing project workflow.
 
-## Now — protect and verify the training prototype
+## Now — protect and verify The 5 Sleeves 3D
 
-**Current milestone:** village training, nonlethal staff sparring with Sensei, a wilderness test route past four raiders and an enemy outpost to a walkable First Tower, solid scenery collision, a skippable offline story opening, levels/XP/cash, inventory/equipment, passive skills, enemy vision and defence, a limited test-sleeve scan, and one-at-a-time quest tracking on a north-up minimap. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
+**Current milestone:** the village, nonlethal staff sparring with Sensei, a wilderness test route past four raiders and an enemy outpost to a walkable First Tower, solid scenery collision, a skippable offline story opening, levels/XP/cash, inventory/equipment, passive skills, enemy vision and defence, a limited test-sleeve scan, and one-at-a-time quest tracking on a north-up minimap. Preserve controls, restart/reset behavior, tutorial/spar phases, first-to-three knockdowns, no deaths, headless rules tests and modular architecture.
 
 **Status: training and settlement/character pass device-tested; progression/inventory/skills/tower/scan/enemy-vision/north-up minimap and collision/story/title pass headless-tested only.** The owner tested the 2026-10-22 settlement/character browser build on the S23+ and reports successful play with no frame drops. The newer systems still need an owner browser/device pass for layout, camera framing, tower interior, scan overlay, minimap feel and performance. Touch-button layout remains deferred. Do not claim feel from headless tests alone.
 
