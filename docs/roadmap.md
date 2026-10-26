@@ -36,7 +36,7 @@ This roadmap is shared guidance for ChatGPT, DeepSeek and future contributors. I
 
 **Status: implemented and device-tested (procedural first pass; reference sheets still required for final likeness).**
 
-**Intent:** replace the anonymous arena impression with a recognizable, inhabited, near-future village training yard while retaining inexpensive procedural geometry and the existing combat footprint. This is a visual/presentation pass; it does not expand gameplay or change story canon.
+**Intent:** replace the anonymous arena impression with a recognizable, inhabited, near-future village settlement while retaining inexpensive procedural geometry and the existing combat footprint. This is a visual/presentation pass; it does not expand gameplay or change story canon.
 
 Possible visual language grounded in Book One drafts and the canon guide:
 - Keep a clear, readable training surface and safe combat space; do not crowd the fighters or obscure staff movement/camera framing.
