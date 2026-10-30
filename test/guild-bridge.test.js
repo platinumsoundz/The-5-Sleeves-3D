@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installGuildBridge, GUILD_BRIDGE_CHANNEL, GUILD_BRIDGE_VERSION } from '../src/guild-bridge.js';
+import { Input } from '../src/input.js';
 
 function harness(referrer = 'https://guild.example/games') {
   const listeners = new Map();
@@ -87,4 +88,26 @@ test('repeated pause commands release input only once until resumed', () => {
   h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('resume') });
   assert.equal(h.game.paused, false);
   assert.equal(h.game.paintCount, 1);
+});
+
+
+test('releaseAll clears every held input source', () => {
+  const input = Object.create(Input.prototype);
+  input.held = new Set(['forward', 'attack']);
+  input.pressed = new Set(['jump']);
+  input.padHeld = new Set(['guard']);
+  input.padMove = { x: 0.8, z: -0.6 };
+  input.look = { x: 0.5, y: -0.2 };
+  input.stick = { pointerId: 7, x: 0.9, y: 0.4, magnitude: 1 };
+  input.pointerStart = { x: 100, y: 200 };
+  input.pointerActions = new Map([[7, 'attack']]);
+  input.releaseAll();
+  assert.equal(input.held.size, 0);
+  assert.equal(input.pressed.size, 0);
+  assert.equal(input.padHeld.size, 0);
+  assert.deepEqual(input.padMove, { x: 0, z: 0 });
+  assert.deepEqual(input.look, { x: 0, y: 0 });
+  assert.deepEqual(input.stick, { pointerId: null, x: 0, y: 0, magnitude: 0 });
+  assert.equal(input.pointerStart, null);
+  assert.equal(input.pointerActions.size, 0);
 });
