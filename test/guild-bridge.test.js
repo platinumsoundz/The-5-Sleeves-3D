@@ -42,7 +42,7 @@ test('pauses and restores the prior game pause state without touching saves', ()
   installGuildBridge(h);
   h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('pause') });
   assert.equal(h.game.paused, true);
-  assert.equal(h.game.resetCount, 1);
+  assert.equal(h.game.releaseCount, 1);
   h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('resume') });
   assert.equal(h.game.paused, false);
   assert.equal(h.game.paintCount, 1);
