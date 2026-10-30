@@ -99,6 +99,7 @@ test('releaseAll clears every held input source', () => {
   input.padMove = { x: 0.8, z: -0.6 };
   input.look = { x: 0.5, y: -0.2 };
   input.stick = { pointerId: 7, x: 0.9, y: 0.4, magnitude: 1 };
+  input.stickKnob = { style: { transform: 'translate(20px, 10px)' } };
   input.pointerStart = { x: 100, y: 200 };
   input.pointerActions = new Map([[7, 'attack']]);
   input.releaseAll();
@@ -108,6 +109,7 @@ test('releaseAll clears every held input source', () => {
   assert.deepEqual(input.padMove, { x: 0, z: 0 });
   assert.deepEqual(input.look, { x: 0, y: 0 });
   assert.deepEqual(input.stick, { pointerId: null, x: 0, y: 0, magnitude: 0 });
+  assert.equal(input.stickKnob.style.transform, '');
   assert.equal(input.pointerStart, null);
   assert.equal(input.pointerActions.size, 0);
 });
