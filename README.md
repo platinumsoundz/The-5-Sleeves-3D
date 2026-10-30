@@ -40,3 +40,10 @@ Current preview is commit-pinned because raw.githack's `/main/` path can serve c
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (progression, gear, enemy vision/defence, First Tower, scan, north-up minimap, multiplayer scaffolding)
 
 > ai: opencode/deepseek-v4.1-flash-free — 2026-10-22 (runtime icon exports from owner source)
+
+
+## Guild embedded-player integration
+
+The Guild can embed this game using the versioned `guild.5-sleeves` lifecycle bridge in `src/guild-bridge.js`. When the game is hosted in the Guild, the bridge validates the exact parent origin and window, announces readiness, and accepts only pause/resume commands. A Guild pause releases held gameplay inputs without changing the game's own restart/reset behaviour. Direct standalone play remains unchanged. This bridge does not provide account identity, cloud saves, wallet access, purchases or DLC entitlements.
+
+See the Guild integration roadmap in the companion `Guild-Sanctuary` repository for the staged account, save, storefront and release plan.
