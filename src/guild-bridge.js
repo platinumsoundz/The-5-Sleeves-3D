@@ -28,9 +28,11 @@ export function installGuildBridge({ windowRef, documentRef, game }) {
     const message = event.data;
     if (!message || message.channel !== GUILD_BRIDGE_CHANNEL || message.version !== GUILD_BRIDGE_VERSION) return;
     if (message.command === 'pause') {
-      if (pausedBeforeHost === null) pausedBeforeHost = Boolean(game.paused);
+      if (pausedBeforeHost === null) {
+        pausedBeforeHost = Boolean(game.paused);
+        game.input?.releaseAll?.();
+      }
       game.paused = true;
-      game.input?.releaseAll?.();
       send('ack', { command: 'pause', requestId: message.requestId ?? null });
       return;
     }
