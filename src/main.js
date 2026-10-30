@@ -16,6 +16,7 @@ import { loadSave } from './save.js';
 import { WORLD_MAP, projectMapBounds, projectMapPoint } from './worldmap.js';
 import { StoryDeck, TOWER_STORY_PAGES } from './story.js';
 import { itemById, itemStatLine, rarityOf } from './items.js';
+import { installGuildBridge } from './guild-bridge.js';
 
 const $ = query => document.querySelector(query);
 const $$ = query => [...document.querySelectorAll(query)];
@@ -57,6 +58,7 @@ const game = new Game(world, input, {
   statPerms: $('#stat-perms'), statScore: $('#stat-score'), saveStatus: $('#save-status')
 }, { requestStart: () => openStory() });
 window.__trainingReady = true;
+installGuildBridge({ windowRef: window, documentRef: document, game });
 
 // Settings: stored locally, applied to the camera, renderer and touch layout.
 let settings = loadSettings(window.localStorage);
