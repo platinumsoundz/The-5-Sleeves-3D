@@ -187,6 +187,19 @@ export class Input {
     this.held.add(action);
   }
   up(action) { this.held.delete(action); }
+  // Release every active input source when the Guild overlays or backgrounds the game.
+  // This is separate from reset(), which intentionally preserves held-key semantics.
+  releaseAll() {
+    this.held.clear();
+    this.pressed.clear();
+    this.padHeld.clear();
+    this.padMove = { x: 0, z: 0 };
+    this.look = { x: 0, y: 0 };
+    this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
+    this.pointerStart = null;
+    this.pointerActions.clear();
+  }
+
   // Drop queued edge presses without releasing held keys; used when the match restarts.
   reset() { this.pressed.clear(); this.pointerStart = null; this.look = { x: 0, y: 0 }; }
 
