@@ -129,6 +129,7 @@ export class Input {
     if (!zone) return;
     const base = zone.querySelector('#stick-base');
     const knob = zone.querySelector('#stick-knob');
+    this.stickKnob = knob;
     const release = event => {
       if (event.pointerId !== this.stick.pointerId) return;
       this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
@@ -196,6 +197,7 @@ export class Input {
     this.padMove = { x: 0, z: 0 };
     this.look = { x: 0, y: 0 };
     this.stick = { pointerId: null, x: 0, y: 0, magnitude: 0 };
+    if (this.stickKnob) this.stickKnob.style.transform = '';
     this.pointerStart = null;
     this.pointerActions.clear();
   }
