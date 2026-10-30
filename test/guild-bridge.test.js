@@ -12,7 +12,7 @@ function harness(referrer = 'https://guild.example/games') {
     removeEventListener: name => listeners.delete(name)
   };
   const documentRef = { referrer };
-  const game = { paused: false, resetCount: 0, paintCount: 0, input: { reset() { game.resetCount += 1; } }, paint() { game.paintCount += 1; } };
+  const game = { paused: false, releaseCount: 0, paintCount: 0, input: { releaseAll() { game.releaseCount += 1; } }, paint() { game.paintCount += 1; } };
   return { windowRef, documentRef, game, sent, dispatch(event) { listeners.get('message')?.(event); }, listeners };
 }
 
@@ -34,7 +34,7 @@ test('ignores messages from a different source or origin', () => {
   h.dispatch({ source: {}, origin: 'https://guild.example', data: command('pause') });
   h.dispatch({ source: h.windowRef.parent, origin: 'https://attacker.example', data: command('pause') });
   assert.equal(h.game.paused, false);
-  assert.equal(h.game.resetCount, 0);
+  assert.equal(h.game.releaseCount, 0);
 });
 
 test('pauses and restores the prior game pause state without touching saves', () => {
@@ -65,4 +65,26 @@ test('does not activate when opened directly without a parent referrer', () => {
   installGuildBridge(h);
   assert.equal(h.sent.length, 0);
   assert.equal(h.listeners.size, 0);
+});
+
+
+test('ignores malformed versions and unsupported commands', () => {
+  const h = harness();
+  installGuildBridge(h);
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: { ...command('pause'), version: 2 } });
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('grant-dlc') });
+  assert.equal(h.game.paused, false);
+  assert.equal(h.game.releaseCount, 0);
+});
+
+test('repeated pause commands release input only once until resumed', () => {
+  const h = harness();
+  installGuildBridge(h);
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('pause') });
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('pause') });
+  assert.equal(h.game.releaseCount, 1);
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('resume') });
+  h.dispatch({ source: h.windowRef.parent, origin: 'https://guild.example', data: command('resume') });
+  assert.equal(h.game.paused, false);
+  assert.equal(h.game.paintCount, 1);
 });
