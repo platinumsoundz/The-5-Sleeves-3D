@@ -30,7 +30,7 @@ export function installGuildBridge({ windowRef, documentRef, game }) {
     if (message.command === 'pause') {
       if (pausedBeforeHost === null) pausedBeforeHost = Boolean(game.paused);
       game.paused = true;
-      game.input?.reset?.();
+      game.input?.releaseAll?.();
       send('ack', { command: 'pause', requestId: message.requestId ?? null });
       return;
     }
